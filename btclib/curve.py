@@ -359,7 +359,7 @@ def _mult_jac(m: int, Q: JacPoint, ec: CurveGroup) -> JacPoint:
 
     This implementation uses 'double & add' algorithm,
     binary decomposition of m,
-    affine coordinates.
+    jacobian coordinates.
     It is not constant-time.
 
     The input point is assumed to be on curve,
