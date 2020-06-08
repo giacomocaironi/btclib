@@ -13,9 +13,10 @@
 import secrets
 
 import pytest
+from typing import Dict
 
 from btclib.alias import INF, INFJ
-from btclib.curve import _jac_from_aff
+from btclib.curve import _jac_from_aff, Curve
 from btclib.curvemult2 import (
     _double_mult,
     _multi_mult,
@@ -83,7 +84,7 @@ def test_assorted_mult2_2():
     ec = ec23_31
     H = second_generator(ec)
     for k1 in range(-ec.n + 1, ec.n):
-        K1 = mult(k1, ec.G, ec)
+        K1 = mult(k1, ec=ec)
         for k2 in range(ec.n):
             K2 = mult(k2, H, ec)
 
@@ -186,3 +187,25 @@ def test_mult_double_mult_2():
     # FIXME
     # T = multi_mult([-5, 1], [H, G])
     # assert T == exp
+
+
+def test_mult_jac_curves2():
+    for ec in low_card_curves.values():
+        assert _mult_jac(0, ec.GJ, ec) == INFJ
+        assert _mult_jac(0, INFJ, ec) == INFJ
+
+        assert _mult_jac(1, INFJ, ec) == INFJ
+        assert _mult_jac(1, ec.GJ, ec) == ec.GJ
+
+        PJ = ec._add_jac(ec.GJ, ec.GJ)
+        assert PJ == _mult_jac(2, ec.GJ, ec)
+
+        PJ = _mult_jac(ec.n - 1, ec.GJ, ec)
+        assert ec._jac_equality(ec.negate(ec.GJ), PJ)
+
+        assert _mult_jac(ec.n - 1, INFJ, ec) == INFJ
+        assert ec._add_jac(PJ, ec.GJ) == INFJ
+        assert _mult_jac(ec.n, ec.GJ, ec) == INFJ
+
+        with pytest.raises(ValueError, match="negative m: -0x"):
+            _mult_jac(-1, ec.GJ, ec)
