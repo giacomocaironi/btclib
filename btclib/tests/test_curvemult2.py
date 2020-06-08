@@ -24,6 +24,7 @@ from btclib.curvemult2 import (
     mult,
     multi_mult,
     _mult_jac,
+    _constant_time_mult_jac,
 )
 from btclib.curves import secp256k1
 from btclib.pedersen import second_generator
@@ -209,3 +210,25 @@ def test_mult_jac_curves2():
 
         with pytest.raises(ValueError, match="negative m: -0x"):
             _mult_jac(-1, ec.GJ, ec)
+
+
+def test_contstant_time_mult_jac_curves2():
+    for ec in low_card_curves.values():
+        assert _constant_time_mult_jac(0, ec.GJ, ec) == INFJ
+        assert _constant_time_mult_jac(0, INFJ, ec) == INFJ
+
+        assert _constant_time_mult_jac(1, INFJ, ec) == INFJ
+        assert _constant_time_mult_jac(1, ec.GJ, ec) == ec.GJ
+
+        PJ = ec._add_jac(ec.GJ, ec.GJ)
+        assert PJ == _constant_time_mult_jac(2, ec.GJ, ec)
+
+        PJ = _constant_time_mult_jac(ec.n - 1, ec.GJ, ec)
+        assert ec._jac_equality(ec.negate(ec.GJ), PJ)
+
+        assert _constant_time_mult_jac(ec.n - 1, INFJ, ec) == INFJ
+        assert ec._add_jac(PJ, ec.GJ) == INFJ
+        assert _constant_time_mult_jac(ec.n, ec.GJ, ec) == INFJ
+
+        with pytest.raises(ValueError, match="negative m: -0x"):
+            _constant_time_mult_jac(-1, ec.GJ, ec)

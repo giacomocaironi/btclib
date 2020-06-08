@@ -93,6 +93,35 @@ def _mult_jac(m: int, Q: JacPoint, ec: CurveGroup) -> JacPoint:
     return R
 
 
+def _constant_time_mult_jac(m: int, Q: JacPoint, ec: CurveGroup) -> JacPoint:
+    """Scalar multiplication of a curve point in Jacobian coordinates.
+
+    This implementation uses 'montgomery ladder' algorithm,
+    jacobian coordinates.
+    It is constant-time if the binary size of Q remains the same.
+
+    The input point is assumed to be on curve,
+    m is assumed to have been reduced mod n if appropriate
+    (e.g. cyclic groups of order n).
+    """
+
+    if m < 0:
+        raise ValueError(f"negative m: {hex(m)}")
+
+    if Q == INFJ:
+        return Q
+
+    R = INFJ  # initialize as infinity point
+    for m in [int(i) for i in bin(m)[2:]]:  # goes through binary digits
+        if m == 0:
+            Q = ec._add_jac(R, Q)
+            R = _double_jac(R, ec)
+        else:
+            R = ec._add_jac(R, Q)
+            Q = _double_jac(Q, ec)
+    return R
+
+
 def mult(m: int, Q: Point = None, ec: Curve = secp256k1) -> Point:
     """Point multiplication, implemented using 'double and add'.
 
