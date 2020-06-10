@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright (C) 2017-2020 The btclib developers
+# Copyright (C) 2020 The btclib developers
 #
 # This file is part of btclib. It is subject to the license terms in the
 # LICENSE file found in the top-level directory of this distribution.
@@ -16,15 +16,14 @@ from btclib import varint
 
 
 # does not add network_string
-def add_headers(name: str, payload: bytes):
+def add_headers(name: str, payload: bytes) -> bytes:
     command = name + ((12 - len(name)) * "\00")
     payload_len = struct.pack("I", len(payload))
     checksum = sha256(sha256(payload).digest()).digest()[:4]
     return command.encode() + payload_len + checksum + payload
 
 
-def verify_headers(message: bytes):
-    # message_name = message[4:16]
+def verify_headers(message: bytes) -> bool:
     payload_len = int.from_bytes(message[16:20], "little")
     checksum = message[20:24]
     payload = message[24:]
@@ -36,15 +35,12 @@ def verify_headers(message: bytes):
     return True
 
 
-def get_payload(message: bytes):
+def get_message_payload(message: bytes) -> bytes:
     try:
         verify_headers(message)
     except Exception:
         raise Exception("Incorrect headers")
-    message_name = message[4:16].rstrip(b"\x00")
     payload = message[24:]
-
-    return [message_name, payload]
 
 
 class NetworkMessage:
@@ -215,11 +211,21 @@ class Filterload(NetworkMessage):
 class Filteradd(NetworkMessage):
     def __init__(self):
         super().__init__(name="filteradd")
+    return payload
 
 
 class Filterclear(NetworkMessage):
     def __init__(self):
         super().__init__(name="filterclear")
+def get_message_name(message: bytes) -> str:
+    try:
+        verify_headers(message)
+    except Exception:
+        raise Exception("Incorrect headers")
+    message_name = message[4:16].rstrip(b"\x00").decode()
+
+    return message_name
+
 
 
 class Merckleblock(NetworkMessage):

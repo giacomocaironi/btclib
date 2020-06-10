@@ -8,9 +8,10 @@
 # No part of btclib including this file, may be copied, modified, propagated,
 # or distributed except according to the terms contained in the LICENSE file.
 
-import messages
 import socket
 import threading
+
+from . import messages
 
 PORT = 18888
 
