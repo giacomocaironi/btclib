@@ -25,8 +25,8 @@ class Connection(threading.Thread):
         self.messages = []
         self.buffer = b""
 
-    def send(self, data: messages.NetworkMessage):
-        self.socket.sendall(self.network_string + data)
+    def send(self, msg: messages.Message):
+        self.socket.sendall(self.network_string + messages.serialize(msg))
 
     def stop(self):
         self.terminate_flag.set()
@@ -37,8 +37,10 @@ class Connection(threading.Thread):
             msg = self.network_string + msg
             try:
                 messages.verify_headers(msg)
-                self.messages.append(messages.get_payload(msg))
+
+                self.messages.append(messages.deserialize(msg))
                 self.buffer = self.buffer[len(msg) :]
+
             except Exception:
                 if i != len(msgs) - 1:
                     self.buffer = self.buffer[len(msg) :]
@@ -75,7 +77,7 @@ class Node:
         conn.start()
 
         version = messages.Version()
-        conn.send(version.to_bytes())
+        conn.send(messages.serialize_version(version))
 
         verack = messages.Verack()
         conn.send(verack.to_bytes())
@@ -85,8 +87,8 @@ class Node:
     def run(self):
         pass
 
-    def send(self, data: messages.NetworkMessage):
-        self.conn.send(data)
+    def send(self, msg: messages.Message):
+        self.conn.send(msg)
 
 
 BUFFER_SIZE = 1024
