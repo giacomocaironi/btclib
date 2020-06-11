@@ -8,7 +8,7 @@
 # No part of btclib including this file, may be copied, modified, propagated,
 # or distributed except according to the terms contained in the LICENSE file.
 
-import messages
+from . import messages
 import socket
 import threading
 
@@ -91,10 +91,10 @@ class Node:
 BUFFER_SIZE = 1024
 
 
-node = Node()
-
-a = messages.Ping()
-node.send(a.to_bytes())
+# node = Node()
+#
+# a = messages.Ping()
+# node.send(a.to_bytes())
 
 # b = messages.Getblocks()
 # node.send(b.to_bytes())

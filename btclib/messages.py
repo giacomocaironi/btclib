@@ -70,7 +70,7 @@ class Version(NetworkMessage):
         self.timestamp = int(time.time()).to_bytes(8, "little")
 
         # differs from https://developer.bitcoin.org/reference/p2p_networking.html#version
-        self.addr_recv_services = (0).to_bytes(16, "little")
+        self.addr_recv_services = (8).to_bytes(16, "little")
 
         self.addr_recv_ip_address = bytes.fromhex("0000ffff7f000001")
         self.addr_recv_port = (8333).to_bytes(2, "big")
