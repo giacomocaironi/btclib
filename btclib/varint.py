@@ -29,21 +29,20 @@ Up to 0xfc, a varint is just 1 byte; however, if the integer is greater than
 * prefix 0xff markes the next eight bytes as the number.
 """
 
-from io import BytesIO
 from typing import BinaryIO, Union
 
 from .alias import Octets
-from .utils import bytes_from_octets, hex_string
+from .utils import bytes_from_octets, hex_string, Stream
 
 
-def decode(stream: Union[BinaryIO, Octets]) -> int:
+def decode(stream: Union[BinaryIO, Octets, Stream]) -> int:
     """Return the variable-length integer read from a stream."""
 
     if isinstance(stream, str):
         stream = bytes_from_octets(stream)
 
-    if isinstance(stream, bytes):
-        stream = BytesIO(stream)
+    if not isinstance(stream, Stream):
+        stream = Stream(stream)
 
     i = stream.read(1)[0]
     if i < 0xFD:

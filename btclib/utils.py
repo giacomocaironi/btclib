@@ -105,8 +105,6 @@ def int_from_integer(i: Integer) -> int:
         i = i.lower()
         if i.startswith("0x"):
             return int(i, 16)
-        if i.startswith("0b"):
-            return int(i, 2)
         i = bytes.fromhex(i)
     if not isinstance(i, bytes):
         raise TypeError("not an Integer=Union[int, str, bytes]")
@@ -144,3 +142,16 @@ def ensure_is_power_of_two(n: int, var_name: str = None) -> None:
     # http://www.graphics.stanford.edu/~seander/bithacks.html
     if n & (n - 1) != 0:
         raise ValueError(f"{var_name}: {n} (must be a power of two)")
+
+
+class Stream:
+    def __init__(self, data: Octets):
+        self.data = data
+
+    def read(self, n: int) -> bytes:
+        if len(self.data) < n:
+            raise Exception("Not enough bytes")
+        else:
+            out = self.data[:n]
+            self.data = self.data[n:]
+            return out
