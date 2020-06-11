@@ -32,15 +32,11 @@ class Tx(TypedDict):
     witness_flag: bool
 
 
-def deserialize(data: Union[Octets, Stream]) -> Tx:
-    # if len(data) < 60:
-    #     raise Exception
+def deserialize(stream: Union[Octets, Stream]) -> Tx:
 
-    data = bytes_from_octets(data)
-    if not isinstance(data, Stream):
-        stream = Stream(data)
-    else:
-        stream = data
+    if not isinstance(stream, Stream):
+        stream = bytes_from_octets(stream)
+        stream = Stream(stream)
 
     version = int.from_bytes(stream.read(4), "little")
 
@@ -50,25 +46,20 @@ def deserialize(data: Union[Octets, Stream]) -> Tx:
         stream.read(2)
 
     input_count = varint.decode(stream)
-    # data = data[len(varint.encode(input_count)) :]
     vin: List[TxIn] = []
     for _ in range(input_count):
         tx_input = tx_in.deserialize(stream)
         vin.append(tx_input)
-        # data = data[len(tx_in.serialize(tx_input)) :]
 
     output_count = varint.decode(stream)
-    # data = data[len(varint.encode(output_count)) :]
     vout: List[TxOut] = []
     for _ in range(output_count):
         tx_output = tx_out.deserialize(stream)
         vout.append(tx_output)
-        # data = data[len(tx_out.serialize(tx_output)) :]
 
     if witness_flag:
         for tx_input in vin:
             witness = tx_in.witness_deserialize(stream)
-            # data = data[len(tx_in.witness_serialize(witness)) :]
             tx_input["txinwitness"] = witness
 
     locktime = int.from_bytes(stream.read(4), "little")

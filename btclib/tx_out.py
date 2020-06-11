@@ -20,17 +20,14 @@ class TxOut(TypedDict):
     scriptPubKey: List[Token]
 
 
-def deserialize(data: Union[Octets, Stream]) -> TxOut:
+def deserialize(stream: Union[Octets, Stream]) -> TxOut:
 
-    data = bytes_from_octets(data)
-    if not isinstance(data, Stream):
-        stream = Stream(data)
-    else:
-        stream = data
+    if not isinstance(stream, Stream):
+        stream = bytes_from_octets(stream)
+        stream = Stream(stream)
 
     value = int.from_bytes(stream.read(8), "little")
     script_length = varint.decode(stream)
-    # data = data[8 + len(varint.encode(script_length)) :]
     scriptPubKey = script.decode(stream.read(script_length))
 
     tx_out: TxOut = {"value": value, "scriptPubKey": scriptPubKey}

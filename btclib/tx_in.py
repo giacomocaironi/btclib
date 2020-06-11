@@ -23,18 +23,15 @@ class TxIn(TypedDict):
     txinwitness: List[str]
 
 
-def deserialize(data: Union[Octets, Stream]) -> TxIn:
+def deserialize(stream: Union[Octets, Stream]) -> TxIn:
 
-    data = bytes_from_octets(data)
-    if not isinstance(data, Stream):
-        stream = Stream(data)
-    else:
-        stream = data
+    if not isinstance(stream, Stream):
+        stream = bytes_from_octets(stream)
+        stream = Stream(stream)
 
     txid = stream.read(32)[::-1].hex()
     vout = int.from_bytes(stream.read(4), "little")
     script_length = varint.decode(stream)
-    # data = data[36 + len(varint.encode(script_length)) :]
 
     if txid != "0" * 64:
         scriptSig = script.decode(stream.read(script_length))
@@ -67,23 +64,17 @@ def serialize(tx_in: TxIn) -> bytes:
     return out
 
 
-def witness_deserialize(data: Union[Octets, Stream]) -> List[str]:
+def witness_deserialize(stream: Union[Octets, Stream]) -> List[str]:
 
-    data = bytes_from_octets(data)
-    if not isinstance(data, Stream):
-        stream = Stream(data)
-    else:
-        stream = data
+    if not isinstance(stream, Stream):
+        stream = bytes_from_octets(stream)
+        stream = Stream(stream)
 
     witness: List[str] = []
-
     witness_count = varint.decode(stream)
-    # data = data[len(varint.encode(witness_count)) :]
     for _ in range(witness_count):
         witness_len = varint.decode(stream)
-        # data = data[len(varint.encode(witness_len)) :]
         witness.append(stream.read(witness_len).hex())
-        # data = data[witness_len:]
 
     return witness
 

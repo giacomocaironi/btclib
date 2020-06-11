@@ -26,12 +26,12 @@ class BlockHeader(TypedDict):
     hash: str
 
 
-def deserialize_block_header(data: Union[Octets, Stream]) -> BlockHeader:
-    data = bytes_from_octets(data)
-    if not isinstance(data, Stream):
-        stream = Stream(data)
-    else:
-        stream = data
+def deserialize_block_header(stream: Union[Octets, Stream]) -> BlockHeader:
+
+    if not isinstance(stream, Stream):
+        stream = bytes_from_octets(stream)
+        stream = Stream(stream)
+
     version = int.from_bytes(stream.read(4), "little")
     previousblockhash = stream.read(32)[::-1].hex()
     merkleroot = stream.read(32)[::-1].hex()
@@ -84,21 +84,19 @@ def generate_merkle_root(transactions: List[tx.Tx]) -> str:
     return hashes[0][::-1].hex()
 
 
-def deserialize_block(data: Union[Octets, Stream]) -> Block:
-    data = bytes_from_octets(data)
-    if not isinstance(data, Stream):
-        stream = Stream(data)
-    else:
-        stream = data
+def deserialize_block(stream: Union[Octets, Stream]) -> Block:
+
+    if not isinstance(stream, Stream):
+        stream = bytes_from_octets(stream)
+        stream = Stream(stream)
+
     header = deserialize_block_header(stream)
-    # data = data[80:]
+
     transaction_count = varint.decode(stream)
-    # data = data[len(varint.encode(transaction_count)) :]
     transactions: List[tx.Tx] = []
     for x in range(transaction_count):
         transaction = tx.deserialize(stream)
         transactions.append(transaction)
-        # data = data[len(tx.serialize(transaction)) :]
 
     block: Block = {"header": header, "transactions": transactions}
 
