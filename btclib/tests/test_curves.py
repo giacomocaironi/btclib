@@ -264,25 +264,26 @@ def test_mult_aff_curves():
 
 
 def test_mult_jac_curves():
-    for ec in all_curves.values():
-        assert _mult_jac(0, ec.GJ, ec) == INFJ
-        assert _mult_jac(0, INFJ, ec) == INFJ
+    for x in range(50):
+        for ec in all_curves.values():
+            assert _mult_jac(0, ec.GJ, ec) == INFJ
+            assert _mult_jac(0, INFJ, ec) == INFJ
 
-        assert _mult_jac(1, INFJ, ec) == INFJ
-        assert _mult_jac(1, ec.GJ, ec) == ec.GJ
+            assert _mult_jac(1, INFJ, ec) == INFJ
+            assert _mult_jac(1, ec.GJ, ec) == ec.GJ
 
-        PJ = ec._add_jac(ec.GJ, ec.GJ)
-        assert PJ == _mult_jac(2, ec.GJ, ec)
+            PJ = ec._add_jac(ec.GJ, ec.GJ)
+            assert PJ == _mult_jac(2, ec.GJ, ec)
 
-        PJ = _mult_jac(ec.n - 1, ec.GJ, ec)
-        assert ec._jac_equality(ec.negate(ec.GJ), PJ)
+            PJ = _mult_jac(ec.n - 1, ec.GJ, ec)
+            assert ec._jac_equality(ec.negate(ec.GJ), PJ)
 
-        assert _mult_jac(ec.n - 1, INFJ, ec) == INFJ
-        assert ec._add_jac(PJ, ec.GJ) == INFJ
-        assert _mult_jac(ec.n, ec.GJ, ec) == INFJ
+            assert _mult_jac(ec.n - 1, INFJ, ec) == INFJ
+            assert ec._add_jac(PJ, ec.GJ) == INFJ
+            assert _mult_jac(ec.n, ec.GJ, ec) == INFJ
 
-        with pytest.raises(ValueError, match="negative m: -0x"):
-            _mult_jac(-1, ec.GJ, ec)
+            with pytest.raises(ValueError, match="negative m: -0x"):
+                _mult_jac(-1, ec.GJ, ec)
 
 
 def test_mult():
