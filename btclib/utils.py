@@ -146,10 +146,7 @@ def ensure_is_power_of_two(n: int, var_name: str = None) -> None:
 
 class Stream:
     def __init__(self, data: Octets):
-        if isinstance(data, bytes):
-            self.data = data
-        if isinstance(data, Stream):
-            self.data = data.data
+        self.data = data
 
     def read(self, n: int) -> bytes:
         if len(self.data) < n:

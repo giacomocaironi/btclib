@@ -75,6 +75,13 @@ def test_single_witness():
         == "d39eb3e3954be4bdc0b3be2d980124b1e1e11fb414b886b52939b07d95a58a8f"
     )
 
+    assert (
+        tx_in.witness_deserialize(
+            tx_in.witness_serialize(transaction["vin"][0]["txinwitness"])
+        )
+        == transaction["vin"][0]["txinwitness"]
+    )
+
 
 # a4b76807519aba5740f7865396bc4c5ca0eb8aa7c3744ca2db88fcc9e345424c
 def test_double_witness():
@@ -95,4 +102,18 @@ def test_double_witness():
     assert (
         tx.hash_value(transaction)
         == "0936cb8dba90e11345b9c05f457f139ddce4a5329701af4708b2cf4a02d75adb"
+    )
+
+    assert (
+        tx_in.witness_deserialize(
+            tx_in.witness_serialize(transaction["vin"][0]["txinwitness"])
+        )
+        == transaction["vin"][0]["txinwitness"]
+    )
+
+    assert (
+        tx_in.witness_deserialize(
+            tx_in.witness_serialize(transaction["vin"][1]["txinwitness"])
+        )
+        == transaction["vin"][1]["txinwitness"]
     )
