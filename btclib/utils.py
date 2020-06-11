@@ -144,3 +144,19 @@ def ensure_is_power_of_two(n: int, var_name: str = None) -> None:
     # http://www.graphics.stanford.edu/~seander/bithacks.html
     if n & (n - 1) != 0:
         raise ValueError(f"{var_name}: {n} (must be a power of two)")
+
+
+class Stream:
+    def __init__(self, data: bytes):
+        if isinstance(data, bytes):
+            self.data = data
+        if isinstance(data, Stream):
+            self.data = data.data
+
+    def read(self, n: int) -> bytes:
+        if len(self.data) < n:
+            raise Exception("Not enough bytes")
+        else:
+            out = self.data[:n]
+            self.data = self.data[n:]
+            return out
