@@ -23,7 +23,6 @@ class BlockHeader(TypedDict):
     time: int
     bits: int
     nonce: int
-    hash: str
 
 
 def deserialize_block_header(stream: Union[Octets, Stream]) -> BlockHeader:
@@ -46,10 +45,7 @@ def deserialize_block_header(stream: Union[Octets, Stream]) -> BlockHeader:
         "time": timestamp,
         "bits": bits,
         "nonce": nonce,
-        "hash": "",
     }
-
-    header["hash"] = hash256(serialize_block_header(header))[::-1].hex()
 
     return header
 
@@ -62,6 +58,10 @@ def serialize_block_header(header: BlockHeader) -> bytes:
     out += header["bits"].to_bytes(4, "little")
     out += header["nonce"].to_bytes(4, "little")
     return out
+
+
+def block_header_hash(header: BlockHeader):
+    return hash256(serialize_block_header(header))[::-1].hex()
 
 
 class Block(TypedDict):
@@ -94,13 +94,18 @@ def deserialize_block(stream: Union[Octets, Stream]) -> Block:
 
     transaction_count = varint.decode(stream)
     transactions: List[tx.Tx] = []
-    for x in range(transaction_count):
+
+    coinbase = tx.deserialize(stream, True)
+    transactions.append(coinbase)
+    for x in range(transaction_count - 1):
         transaction = tx.deserialize(stream)
         transactions.append(transaction)
 
     block: Block = {"header": header, "transactions": transactions}
-
-    return block
+    if validate_block(block):
+        return block
+    else:
+        raise Exception("Invalid block")
 
 
 def serialize_block(block: Block) -> bytes:
@@ -109,3 +114,36 @@ def serialize_block(block: Block) -> bytes:
     for transaction in block["transactions"]:
         out += tx.serialize(transaction)
     return out
+
+
+def validate_block(block: Block) -> bool:
+    for transaction in block["transactions"][1:]:
+        if not tx.validate(transaction):
+            return False
+    if not _validate_block_header(block["header"]):
+        return False
+    if (
+        not _generate_merkle_root(block["transactions"])
+        == block["header"]["merkleroot"]
+    ):
+        return False
+    return True
+
+
+def _validate_block_header(block: BlockHeader) -> bool:
+    return True
+
+
+def _generate_merkle_root(transactions: List[tx.Tx]) -> str:
+    hashes = [bytes.fromhex(tx.txid(transaction))[::-1] for transaction in transactions]
+    hashes_buffer = []
+    while len(hashes) != 1:
+        if len(hashes) % 2 != 0:
+            hashes.append(hashes[-1])
+        for x in range(len(hashes) // 2):
+            hashes_buffer.append(
+                sha256(sha256(hashes[2 * x] + hashes[2 * x + 1]).digest()).digest()
+            )
+        hashes = hashes_buffer[:]
+        hashes_buffer = []
+    return hashes[0][::-1].hex()

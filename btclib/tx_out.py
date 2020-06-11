@@ -31,7 +31,11 @@ def deserialize(stream: Union[Octets, Stream]) -> TxOut:
     scriptPubKey = script.decode(stream.read(script_length))
 
     tx_out: TxOut = {"value": value, "scriptPubKey": scriptPubKey}
-    return tx_out
+
+    if validate(tx_out):
+        return tx_out
+    else:
+        raise Exception("Invalid transaction output")
 
 
 def serialize(tx_out: TxOut) -> bytes:
@@ -40,3 +44,7 @@ def serialize(tx_out: TxOut) -> bytes:
     out += varint.encode(len(script_bytes))
     out += script_bytes
     return out
+
+
+def validate(tx_out: TxOut) -> bool:
+    return True

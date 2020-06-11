@@ -19,11 +19,12 @@ class TxIn(TypedDict):
     txid: str
     vout: int
     scriptSig: List[Token]
+    scriptSigHex: str
     sequence: int
     txinwitness: List[str]
 
 
-def deserialize(stream: Union[Octets, Stream]) -> TxIn:
+def deserialize(stream: Union[Octets, Stream], coinbase: bool = True) -> TxIn:
 
     if not isinstance(stream, Stream):
         stream = bytes_from_octets(stream)
@@ -33,10 +34,10 @@ def deserialize(stream: Union[Octets, Stream]) -> TxIn:
     vout = int.from_bytes(stream.read(4), "little")
     script_length = varint.decode(stream)
 
-    if txid != "0" * 64:
-        scriptSig = script.decode(stream.read(script_length))
-    else:
-        scriptSig = stream.read(script_length)
+    scriptSigHex = stream.read(script_length).hex()
+    scriptSig = []
+    if not coinbase:
+        scriptSig = script.decode(scriptSigHex)
 
     sequence = int.from_bytes(stream.read(4), "little")
     txinwitness: List[str] = []
@@ -45,19 +46,23 @@ def deserialize(stream: Union[Octets, Stream]) -> TxIn:
         "txid": txid,
         "vout": vout,
         "scriptSig": scriptSig,
+        "scriptSigHex": scriptSigHex,
         "sequence": sequence,
         "txinwitness": txinwitness,
     }
-    return tx_in
+
+    if coinbase or validate(
+        tx_in
+    ):  # the block is responsible of validating the coinbase
+        return tx_in
+    else:
+        raise Exception("Invalid transaction input")
 
 
 def serialize(tx_in: TxIn) -> bytes:
     out = bytes.fromhex(tx_in["txid"])[::-1]
     out += tx_in["vout"].to_bytes(4, "little")
-    if tx_in["txid"] != "0" * 64:
-        script_bytes = script.encode(tx_in["scriptSig"])
-    else:
-        script_bytes = tx_in["scriptSig"]
+    script_bytes = bytes.fromhex(tx_in["scriptSigHex"])
     out += varint.encode(len(script_bytes))
     out += script_bytes
     out += tx_in["sequence"].to_bytes(4, "little")
@@ -91,3 +96,7 @@ def witness_serialize(witness: List[str]) -> bytes:
         out += witness_bytes
 
     return out
+
+
+def validate(tx_in: TxIn) -> bool:
+    return True
