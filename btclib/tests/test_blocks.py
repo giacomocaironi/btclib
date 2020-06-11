@@ -11,8 +11,14 @@
 "Tests for `btclib.blocks` module."
 
 import os
+import pytest
 
-from btclib.blocks import serialize_block, deserialize_block, generate_merkle_root
+from btclib.blocks import (
+    deserialize_block_header,
+    serialize_block,
+    deserialize_block,
+    generate_merkle_root,
+)
 
 
 # actually second block in chain, first obtainable from other nodes
@@ -129,28 +135,28 @@ def test_block_481824_complete():
     assert block["transactions"][0]["vin"][0]["txinwitness"] != []
 
 
-# def test_only_79_bytes():
-#
-#     fname = "block_1.bin"
-#     filename = os.path.join(os.path.dirname(__file__), "test_data", fname)
-#     header_bytes = open(filename, "rb").read()
-#     header_bytes = header_bytes[:79]
-#
-#     err_msg = "Too little data"
-#     with pytest.raises(Exception, match=err_msg):
-#         Block.from_bytes(header_bytes)
-#
-#     with pytest.raises(Exception):
-#         BlockHeader.from_bytes(header_bytes)
-#
-#
-# def test_varint_error():
-#
-#     fname = "block_1.bin"
-#     filename = os.path.join(os.path.dirname(__file__), "test_data", fname)
-#     block_bytes = open(filename, "rb").read()
-#     block_bytes = block_bytes[:80] + b"\xff"
-#
-#     err_msg = "Too little data"
-#     with pytest.raises(Exception, match=err_msg):
-#         Block.from_bytes(block_bytes)
+def test_only_79_bytes():
+
+    fname = "block_1.bin"
+    filename = os.path.join(os.path.dirname(__file__), "test_data", fname)
+    header_bytes = open(filename, "rb").read()
+    header_bytes = header_bytes[:79]
+
+    err_msg = "Not enough bytes"
+    with pytest.raises(Exception, match=err_msg):
+        deserialize_block(header_bytes)
+
+    with pytest.raises(Exception):
+        deserialize_block_header(header_bytes)
+
+
+def test_varint_error():
+
+    fname = "block_1.bin"
+    filename = os.path.join(os.path.dirname(__file__), "test_data", fname)
+    block_bytes = open(filename, "rb").read()
+    block_bytes = block_bytes[:80] + b"\xff"
+
+    err_msg = "Not enough bytes"
+    with pytest.raises(Exception, match=err_msg):
+        deserialize_block(block_bytes)
