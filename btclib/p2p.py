@@ -90,6 +90,31 @@ class Node:
 
 BUFFER_SIZE = 1024
 
+from . import messages, blocks
+import time
+
+
+def download_block(block_hash):
+    node = Node()
+    a = messages.NetworkMessage(
+        "getdata", b"\x01\x02\x00\x00@" + bytes.fromhex(block_hash)[::-1]
+    )
+    node.send(a.to_bytes())
+    time.sleep(2)
+    # block_bytes = node.conn.messages[-1][1]
+    i = 0
+    while True:
+        i += 1
+        raw = node.conn.messages[-i]
+        if raw[0] == b"block":
+            block_bytes = raw[1]
+            break
+    block = blocks.deserialize_block(block_bytes)
+    node.conn.stop()
+    return block
+
+
+# len(download_block('')['transactions'])
 
 # node = Node()
 #
