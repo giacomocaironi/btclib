@@ -8,11 +8,11 @@
 # No part of btclib including this file, may be copied, modified, propagated,
 # or distributed except according to the terms contained in the LICENSE file.
 
-from typing import List, TypedDict
+from typing import List, TypedDict, Union
 
 from . import script, varint
 from .alias import Octets, Token
-from .utils import bytes_from_octets
+from .utils import bytes_from_octets, Stream
 
 
 class TxIn(TypedDict):
@@ -23,21 +23,25 @@ class TxIn(TypedDict):
     txinwitness: List[str]
 
 
-def deserialize(data: Octets) -> TxIn:
+def deserialize(data: Union[Octets, Stream]) -> TxIn:
 
     data = bytes_from_octets(data)
+    if not isinstance(data, Stream):
+        stream = Stream(data)
+    else:
+        stream = data
 
-    txid = data[:32][::-1].hex()
-    vout = int.from_bytes(data[32:36], "little")
-    script_length = varint.decode(data[36:])
-    data = data[36 + len(varint.encode(script_length)) :]
+    txid = stream.read(32)[::-1].hex()
+    vout = int.from_bytes(stream.read(4), "little")
+    script_length = varint.decode(stream)
+    # data = data[36 + len(varint.encode(script_length)) :]
 
     if txid != "0" * 64:
-        scriptSig = script.decode(data[:script_length])
+        scriptSig = script.decode(stream.read(script_length))
     else:
-        scriptSig = data[:script_length]
+        scriptSig = stream.read(script_length)
 
-    sequence = int.from_bytes(data[script_length : script_length + 4], "little")
+    sequence = int.from_bytes(stream.read(4), "little")
     txinwitness: List[str] = []
 
     tx_in: TxIn = {
@@ -63,19 +67,23 @@ def serialize(tx_in: TxIn) -> bytes:
     return out
 
 
-def witness_deserialize(data: Octets) -> List[str]:
+def witness_deserialize(data: Union[Octets, Stream]) -> List[str]:
 
     data = bytes_from_octets(data)
+    if not isinstance(data, Stream):
+        stream = Stream(data)
+    else:
+        stream = data
 
     witness: List[str] = []
 
-    witness_count = varint.decode(data)
-    data = data[len(varint.encode(witness_count)) :]
+    witness_count = varint.decode(stream)
+    # data = data[len(varint.encode(witness_count)) :]
     for _ in range(witness_count):
-        witness_len = varint.decode(data)
-        data = data[len(varint.encode(witness_len)) :]
-        witness.append(data[:witness_len].hex())
-        data = data[witness_len:]
+        witness_len = varint.decode(stream)
+        # data = data[len(varint.encode(witness_len)) :]
+        witness.append(stream.read(witness_len).hex())
+        # data = data[witness_len:]
 
     return witness
 

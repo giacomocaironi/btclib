@@ -35,7 +35,7 @@ from .alias import Octets
 from .utils import bytes_from_octets, hex_string, Stream
 
 
-def decode(stream: Union[BinaryIO, Octets]) -> int:
+def decode(stream: Union[BinaryIO, Octets, Stream]) -> int:
     """Return the variable-length integer read from a stream."""
 
     if isinstance(stream, str):

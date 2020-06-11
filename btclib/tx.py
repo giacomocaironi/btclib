@@ -15,13 +15,13 @@ https://learnmeabitcoin.com/guide/coinbase-transaction
 https://bitcoin.stackexchange.com/questions/20721/what-is-the-format-of-the-coinbase-transaction
 """
 
-from typing import List, TypedDict
+from typing import List, TypedDict, Union
 
 from . import tx_in, tx_out, varint
 from .alias import Octets
 from .tx_in import TxIn
 from .tx_out import TxOut
-from .utils import bytes_from_octets, hash256
+from .utils import bytes_from_octets, hash256, Stream
 
 
 class Tx(TypedDict):
@@ -32,43 +32,46 @@ class Tx(TypedDict):
     witness_flag: bool
 
 
-def deserialize(data: Octets) -> Tx:
+def deserialize(data: Union[Octets, Stream]) -> Tx:
     # if len(data) < 60:
     #     raise Exception
 
     data = bytes_from_octets(data)
+    if not isinstance(data, Stream):
+        stream = Stream(data)
+    else:
+        stream = data
 
-    version = int.from_bytes(data[:4], "little")
-    data = data[4:]
+    version = int.from_bytes(stream.read(4), "little")
 
     witness_flag = False
-    if data[:2] == b"\x00\x01":
+    if stream.data[:2] == b"\x00\x01":
         witness_flag = True
-        data = data[2:]
+        stream.read(2)
 
-    input_count = varint.decode(data)
-    data = data[len(varint.encode(input_count)) :]
+    input_count = varint.decode(stream)
+    # data = data[len(varint.encode(input_count)) :]
     vin: List[TxIn] = []
     for _ in range(input_count):
-        tx_input = tx_in.deserialize(data)
+        tx_input = tx_in.deserialize(stream)
         vin.append(tx_input)
-        data = data[len(tx_in.serialize(tx_input)) :]
+        # data = data[len(tx_in.serialize(tx_input)) :]
 
-    output_count = varint.decode(data)
-    data = data[len(varint.encode(output_count)) :]
+    output_count = varint.decode(stream)
+    # data = data[len(varint.encode(output_count)) :]
     vout: List[TxOut] = []
     for _ in range(output_count):
-        tx_output = tx_out.deserialize(data)
+        tx_output = tx_out.deserialize(stream)
         vout.append(tx_output)
-        data = data[len(tx_out.serialize(tx_output)) :]
+        # data = data[len(tx_out.serialize(tx_output)) :]
 
     if witness_flag:
         for tx_input in vin:
-            witness = tx_in.witness_deserialize(data)
-            data = data[len(tx_in.witness_serialize(witness)) :]
+            witness = tx_in.witness_deserialize(stream)
+            # data = data[len(tx_in.witness_serialize(witness)) :]
             tx_input["txinwitness"] = witness
 
-    locktime = int.from_bytes(data[:4], "little")
+    locktime = int.from_bytes(stream.read(4), "little")
 
     tx: Tx = {
         "version": version,

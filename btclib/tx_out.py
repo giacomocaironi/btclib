@@ -8,11 +8,11 @@
 # No part of btclib including this file, may be copied, modified, propagated,
 # or distributed except according to the terms contained in the LICENSE file.
 
-from typing import List, TypedDict
+from typing import List, TypedDict, Union
 
 from . import script, varint
 from .alias import Octets, Token
-from .utils import bytes_from_octets
+from .utils import bytes_from_octets, Stream
 
 
 class TxOut(TypedDict):
@@ -20,19 +20,20 @@ class TxOut(TypedDict):
     scriptPubKey: List[Token]
 
 
-def deserialize(data: Octets) -> TxOut:
+def deserialize(data: Union[Octets, Stream]) -> TxOut:
 
     data = bytes_from_octets(data)
+    if not isinstance(data, Stream):
+        stream = Stream(data)
+    else:
+        stream = data
 
-    value = int.from_bytes(data[:8], "little")
-    script_length = varint.decode(data[8:])
-    data = data[8 + len(varint.encode(script_length)) :]
-    scriptPubKey = script.decode(data[:script_length])
+    value = int.from_bytes(stream.read(8), "little")
+    script_length = varint.decode(stream)
+    # data = data[8 + len(varint.encode(script_length)) :]
+    scriptPubKey = script.decode(stream.read(script_length))
 
-    tx_out: TxOut = {
-        "value": value,
-        "scriptPubKey": scriptPubKey,
-    }
+    tx_out: TxOut = {"value": value, "scriptPubKey": scriptPubKey}
     return tx_out
 
 
