@@ -19,6 +19,7 @@ from .hashes import hash160_from_key, hash160_from_script, hash256_from_script
 from .script import decode, encode
 from .to_pubkey import pubkeyinfo_from_key
 from .utils import bytes_from_octets
+from .ssa import BIP340PubKey, point_from_bip340pubkey
 
 # 1. Hash/WitnessProgram from pubkey/script
 
@@ -84,6 +85,9 @@ def scriptPubKey_from_payload(
         elif script_type == "p2wpkh":
             payload = bytes_from_octets(payloads, 20)
             script = [0, payload]
+        elif script_type == "p2tr":
+            payload = bytes_from_octets(payloads, 32)
+            script = [1, payload]
         else:
             raise ValueError(f"Unknown script type: {script_type}")
 
@@ -189,6 +193,10 @@ def payload_from_scriptPubKey(script: Script) -> Tuple[str, Payloads, int]:
     # 0x0020{32-byte script_hash}
     elif length == 34 and s[:2] == b"\x00\x20":
         return "p2wsh", s[2:], 0
+    # p2wt [1, script_hash]
+    # 0x0020{32-byte script_hash}
+    elif length == 34 and s[:2] == b"\x01\x20":
+        return "p2tr", s[2:], 0
     # Unknow script
     else:
         errmsg = f"Unknown {len(s)}-bytes script"
@@ -254,3 +262,10 @@ def p2wsh(wscript: Script) -> bytes:
 
     script_h256 = hash256_from_script(wscript)
     return scriptPubKey_from_payload("p2wsh", script_h256)
+
+
+def p2tr(key: BIP340PubKey) -> bytes:
+    "Return the p2tr scriptPubKey of the provided script."
+
+    pubkey = point_from_bip340pubkey(key)[0].to_bytes(32, "big")
+    return scriptPubKey_from_payload("p2tr", pubkey)

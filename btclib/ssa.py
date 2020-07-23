@@ -58,7 +58,7 @@ from .bip32 import BIP32KeyDict
 from .curve import Curve
 from .curvemult import _double_mult, _mult_jac, _multi_mult
 from .curves import secp256k1
-from .hashes import reduce_to_hlen
+from .hashes import reduce_to_hlen, tagged_hash
 from .numbertheory import mod_inv
 from .to_prvkey import int_from_prvkey
 from .to_pubkey import point_from_pubkey
@@ -167,19 +167,6 @@ def gen_keys(prvkey: PrvKey = None, ec: Curve = secp256k1) -> Tuple[int, int]:
     return q, x_Q
 
 
-# TODO move to hashes
-# This implementation can be sped up by storing the midstate after hashing
-# tag_hash instead of rehashing it all the time.
-def _tagged_hash(tag: str, m: bytes, hf: HashF) -> bytes:
-    t = tag.encode()
-    h1 = hf()
-    h1.update(t)
-    tag_hash = h1.digest()
-    h2 = hf()
-    h2.update(tag_hash + tag_hash + m)
-    return h2.digest()
-
-
 def __det_nonce(m: bytes, q: int, ec: Curve, hf: HashF) -> Tuple[int, int]:
 
     # assume the random oracle model for the hash function,
@@ -195,7 +182,7 @@ def __det_nonce(m: bytes, q: int, ec: Curve, hf: HashF) -> Tuple[int, int]:
     # which works also for very-low-cardinality test curves
     t = q.to_bytes(ec.nsize, "big") + m
     while True:
-        t = _tagged_hash("BIPSchnorrDerive", t, hf)
+        t = tagged_hash("BIPSchnorrDerive", t, hf)
         # The following lines would introduce a bias
         # k = int.from_bytes(t, 'big') % ec.n
         # k = int_from_bits(t, ec.nlen) % ec.n
@@ -236,7 +223,7 @@ def __challenge(m: bytes, x_Q: int, r: int, ec: Curve, hf: HashF) -> int:
     t += x_Q.to_bytes(ec.psize, "big")
     # m size must have been already checked to be equal to hsize
     t += m
-    t = _tagged_hash("BIPSchnorr", t, hf)
+    t = tagged_hash("BIPSchnorr", t, hf)
     c = int_from_bits(t, ec.nlen) % ec.n
     # if c == 0 then private key is removed from the equations,
     # so the signature is valid for any private/public key pair

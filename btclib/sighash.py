@@ -13,8 +13,14 @@ from typing import List, Union
 from . import script, tx, tx_out, varint
 from .alias import Octets, Script, Token
 from .scriptpubkey import payload_from_scriptPubKey
-from .utils import bytes_from_octets, hash256
+from .utils import bytes_from_octets, hash256, sha256
+from .hashes import tagged_hash
+from .script import encode as script_encode
 
+SIGHASH_ALL = 0x01
+SIGHASH_NONE = 0x02
+SIGHASH_SINGLE = 0x03
+SIGHASH_ANYONECANPAY = 0x80
 
 # workaround to handle CTransactions
 def get_bytes(a: Union[int, str]) -> bytes:
@@ -75,6 +81,65 @@ def SegwitV0SignatureHash(
     preimage += bytes.fromhex(hashtype_hex)
 
     sig_hash = hash256(preimage)
+    return sig_hash
+
+
+def SegwitV1SignatureHash(
+    transaction: tx.Tx,
+    input_index: int,
+    amounts: List[int],
+    scriptpubkeys: List[List[Token]],
+    hashtype: int,
+    ext_flag: int,
+    annex: bytes,
+) -> bytes:
+
+    preimage = b"\x00"
+    preimage += hashtype.to_bytes(4, "big")
+    preimage += transaction.nVersion.to_bytes(4, "little")
+    preimage += transaction.nLockTime.to_bytes(4, "little")
+
+    if hashtype & 0x80 != SIGHASH_ANYONECANPAY:
+        sha_prevouts = b""
+        sha_amounts = b""
+        sha_scriptpubkeys = b""
+        sha_sequences = b""
+        for i, vin in enumerate(transaction.vin):
+            sha_prevouts += get_bytes(vin.prevout.hash)[::-1]
+            sha_prevouts += vin.prevout.n.to_bytes(4, "little")
+            sha_amounts += amounts[i].to_bytes(8, "little")
+            sha_scriptpubkeys += script_encode(scriptpubkeys[i])
+            sha_sequences += vin.nSequence.to_bytes(4, "little")
+        preimage += sha256(sha_prevouts)
+        preimage += sha256(sha_amounts)
+        preimage += sha256(sha_scriptpubkeys)
+        preimage += sha256(sha_sequences)
+
+    if hashtype & 0x03 not in [SIGHASH_NONE, SIGHASH_SINGLE]:
+        sha_outputs = b""
+        for vout in transaction.vout:
+            sha_outputs += vout.serialize()
+        preimage += sha256(sha_outputs)
+
+    annex_present = int(bool(annex))
+    preimage += (2 * ext_flag + annex_present).to_bytes(1, "little")
+
+    if hashtype & 0x80 == SIGHASH_ANYONECANPAY:
+        preimage += transaction.vin[input_index].prevout.serialize()
+        preimage += amounts[input_index].to_bytes(8, "little")
+        preimage += script_encode(scriptpubkeys[input_index])
+        preimage += transaction.vin[input_index].nSequence.to_bytes(4, "little")
+    else:
+        preimage += input_index.to_bytes(4, "little")
+
+    if annex_present:
+        sha_annex = varint.encode(len(annex)) + annex
+        preimage += sha256(sha_annex)
+
+    if hashtype & 0x03 == SIGHASH_SINGLE:
+        preimage += sha256(transaction.vout[input_index].serialize())
+
+    sig_hash = tagged_hash("TapSighash", preimage)
     return sig_hash
 
 
