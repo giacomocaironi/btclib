@@ -97,7 +97,8 @@ def network_from_key_value(key: str, prefix: Union[str, bytes, Curve]) -> str:
     because the two networks share the same prefixes.
     """
     for net in NETWORKS:
-        if NETWORKS[net][key] == prefix:
+        # FIXME: do not ignore
+        if NETWORKS[net][key] == prefix:  # type: ignore
             return net
     raise ValueError(f"invalid value for network keyword '{key}': {prefix!r}")
 
@@ -119,26 +120,24 @@ _P2WPKH_PUB_PREFIXES = [NETWORKS[net]["slip132_p2wpkh_pub"] for net in NETWORKS]
 
 def xpubversions_from_network(network: str) -> List[bytes]:
     network = network.lower()
-    result = [
+    return [
         NETWORKS[network]["bip32_pub"],
         NETWORKS[network]["slip132_p2wsh_p2sh_pub"],
         NETWORKS[network]["slip132_p2wpkh_p2sh_pub"],
         NETWORKS[network]["slip132_p2wpkh_pub"],
         NETWORKS[network]["slip132_p2wsh_pub"],
     ]
-    return result
 
 
 def xprvversions_from_network(network: str) -> List[bytes]:
     network = network.lower()
-    result = [
+    return [
         NETWORKS[network]["bip32_prv"],
         NETWORKS[network]["slip132_p2wsh_p2sh_prv"],
         NETWORKS[network]["slip132_p2wpkh_p2sh_prv"],
         NETWORKS[network]["slip132_p2wpkh_prv"],
         NETWORKS[network]["slip132_p2wsh_prv"],
     ]
-    return result
 
 
 _XPRV_VERSIONS_ALL = (

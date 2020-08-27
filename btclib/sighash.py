@@ -23,16 +23,12 @@ SIGHASH_SINGLE = 0x03
 SIGHASH_ANYONECANPAY = 0x80
 
 # workaround to handle CTransactions
-def get_bytes(a: Union[int, str]) -> bytes:
-
-    if isinstance(a, int):
-        return int.to_bytes(a, 32, "big")
-    else:
-        return bytes.fromhex(a)
+def _get_bytes(a: Union[int, str]) -> bytes:
+    return int.to_bytes(a, 32, "big") if isinstance(a, int) else bytes.fromhex(a)
 
 
 # https://github.com/bitcoin/bitcoin/blob/4b30c41b4ebf2eb70d8a3cd99cf4d05d405eec81/test/functional/test_framework/script.py#L673
-def SegwitV0SignatureHash(
+def segwit_v0_sighash(
     scriptCode: Octets, transaction: tx.Tx, input_index: int, hashtype: int, amount: int
 ) -> bytes:
 
@@ -40,7 +36,7 @@ def SegwitV0SignatureHash(
     if hashtype_hex[0] != "8":
         hashPrevouts = b""
         for vin in transaction.vin:
-            hashPrevouts += get_bytes(vin.prevout.hash)[::-1]
+            hashPrevouts += _get_bytes(vin.prevout.hash)[::-1]
             hashPrevouts += vin.prevout.n.to_bytes(4, "little")
         hashPrevouts = hash256(hashPrevouts)
     else:
@@ -54,7 +50,7 @@ def SegwitV0SignatureHash(
     else:
         hashSequence = b"\x00" * 32
 
-    if not hashtype_hex[1] == "2" and not hashtype_hex[1] == "3":
+    if hashtype_hex[1] != "2" and hashtype_hex[1] != "3":
         hashOutputs = b""
         for vout in transaction.vout:
             hashOutputs += vout.serialize()
@@ -66,7 +62,7 @@ def SegwitV0SignatureHash(
 
     scriptCode = bytes_from_octets(scriptCode)
 
-    outpoint = get_bytes(transaction.vin[input_index].prevout.hash)[::-1]
+    outpoint = _get_bytes(transaction.vin[input_index].prevout.hash)[::-1]
     outpoint += transaction.vin[input_index].prevout.n.to_bytes(4, "little")
 
     preimage = transaction.nVersion.to_bytes(4, "little")
@@ -80,11 +76,10 @@ def SegwitV0SignatureHash(
     preimage += transaction.nLockTime.to_bytes(4, "little")
     preimage += bytes.fromhex(hashtype_hex)
 
-    sig_hash = hash256(preimage)
-    return sig_hash
+    return hash256(preimage)
 
 
-def SegwitV1SignatureHash(
+def segwit_v1_sighash(
     transaction: tx.Tx,
     input_index: int,
     amounts: List[int],
@@ -105,7 +100,7 @@ def SegwitV1SignatureHash(
         sha_scriptpubkeys = b""
         sha_sequences = b""
         for i, vin in enumerate(transaction.vin):
-            sha_prevouts += get_bytes(vin.prevout.hash)[::-1]
+            sha_prevouts += _get_bytes(vin.prevout.hash)[::-1]
             sha_prevouts += vin.prevout.n.to_bytes(4, "little")
             sha_amounts += amounts[i].to_bytes(8, "little")
             sha_scriptpubkeys += script_encode(scriptpubkeys[i])
@@ -165,10 +160,6 @@ def _get_witness_v0_scriptCodes(scriptPubKey: Script) -> List[str]:
     return scriptCodes
 
 
-# def _get_sighash():
-#     pass
-
-
 def get_sighash(
     transaction: tx.Tx,
     previous_output: tx_out.TxOut,
@@ -192,12 +183,10 @@ def get_sighash(
             scriptCode = _get_witness_v0_scriptCodes(
                 script.decode(transaction.vin[input_index].txinwitness[-1])
             )[0]
-        sighash = SegwitV0SignatureHash(
+        return segwit_v0_sighash(
             bytes.fromhex(scriptCode), transaction, input_index, sighash_type, value
         )
-
-        return sighash
-    raise RuntimeError("Does not yet support legacy transactions")
+    raise RuntimeError("legacy transactions not supported yet")
 
 
 # def sign(

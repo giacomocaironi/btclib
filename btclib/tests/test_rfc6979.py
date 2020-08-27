@@ -43,10 +43,10 @@ def test_rfc6979_example() -> None:
     x = 0x09A4D6792295A7F730FC3F2B49CBC0F62E862272F
     msg = "sample"
     k = 0x23AF4074C90A02B3FE61D286D5C87F425E6BDD81B
-    assert k == rfc6979(msg, x, fake_ec)
+    assert k == rfc6979(msg, x, fake_ec)  # type: ignore
 
 
-@pytest.mark.third
+@pytest.mark.second
 def test_rfc6979_tv() -> None:
 
     fname = "rfc6979.json"

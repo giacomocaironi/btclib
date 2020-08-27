@@ -73,10 +73,10 @@ def test_signature() -> None:
         dsa.assert_as_valid(msg, INF, sig)
 
     sig_fake = (sig[0], sig[1], sig[1])
-    assert not dsa.verify(msg, Q, sig_fake)
+    assert not dsa.verify(msg, Q, sig_fake)  # type: ignore
     err_msg = "too many values to unpack "
     with pytest.raises(ValueError, match=err_msg):
-        dsa.assert_as_valid(msg, Q, sig_fake)
+        dsa.assert_as_valid(msg, Q, sig_fake)  # type: ignore
 
     sig_invalid = ec.p, sig[1]
     assert not dsa.verify(msg, Q, sig_invalid)
@@ -105,7 +105,7 @@ def test_signature() -> None:
 def test_gec() -> None:
     """GEC 2: Test Vectors for SEC 1, section 2
 
-        http://read.pudn.com/downloads168/doc/772358/TestVectorsforSEC%201-gec2.pdf
+    http://read.pudn.com/downloads168/doc/772358/TestVectorsforSEC%201-gec2.pdf
     """
     # 2.1.1 Scheme setup
     ec = CURVES["secp160r1"]

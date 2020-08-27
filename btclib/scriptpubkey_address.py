@@ -21,17 +21,8 @@ from .tx_out import TxOut
 
 def has_segwit_prefix(addr: String) -> bool:
 
-    if isinstance(addr, str):
-        str_addr = addr.strip()
-        str_addr = str_addr.lower()
-    else:
-        str_addr = addr.decode("ascii")
-
-    for net in NETWORKS:
-        if str_addr.startswith(NETWORKS[net]["p2w"] + "1"):
-            return True
-
-    return False
+    str_addr = addr.strip().lower() if isinstance(addr, str) else addr.decode("ascii")
+    return any(str_addr.startswith(NETWORKS[net]["p2w"] + "1") for net in NETWORKS)
 
 
 def scriptPubKey_from_address(addr: String) -> Tuple[bytes, str]:
@@ -41,7 +32,7 @@ def scriptPubKey_from_address(addr: String) -> Tuple[bytes, str]:
         # also check witness validity
         wv, wp, network, is_script_hash = witness_from_b32address(addr)
         if wv != 0:
-            raise ValueError(f"Unmanaged witness version ({wv})")
+            raise ValueError(f"unmanaged witness version: {wv}")
         if is_script_hash:
             return scriptPubKey_from_payload("p2wsh", wp), network
         else:
@@ -54,16 +45,16 @@ def scriptPubKey_from_address(addr: String) -> Tuple[bytes, str]:
             return scriptPubKey_from_payload("p2pkh", h160), network
 
 
-def address_from_scriptPubKey(s: Script, network: str = "mainnet") -> bytes:
-    "Return the bech32/base58 address from the input scriptPubKey."
+def address_from_scriptPubKey(scriptPubKey: Script, network: str = "mainnet") -> bytes:
+    "Return the bech32/base58 address from a scriptPubKey."
 
-    script_type, payload, m = payload_from_scriptPubKey(s)
+    script_type, payload, m = payload_from_scriptPubKey(scriptPubKey)
     if script_type == "p2pk":
-        raise ValueError("No address for p2pk script")
+        raise ValueError("no address for p2pk scriptPubKey")
     if script_type == "p2ms" or isinstance(payload, list) or m != 0:
-        raise ValueError("No address for p2ms script")
+        raise ValueError("no address for p2ms scriptPubKey")
     if script_type == "nulldata":
-        raise ValueError("No address for null data script")
+        raise ValueError("no address for null data script")
 
     if script_type == "p2pkh":
         prefix = NETWORKS[network]["p2pkh"]
@@ -78,8 +69,7 @@ def address_from_scriptPubKey(s: Script, network: str = "mainnet") -> bytes:
 
 def tx_out_from_address(address: str, value: int) -> TxOut:
     scriptPubKey = scriptPubKey_from_address(address)[0]
-    tx_out = TxOut(value, decode(scriptPubKey))
-    return tx_out
+    return TxOut(value, decode(scriptPubKey))
 
 
 def address_from_tx_out(tx_out: TxOut) -> str:

@@ -11,11 +11,11 @@
 "Tests for `btclib.sighash` module."
 
 # test vector at https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki
-from btclib import tx, tx_out, script
+from btclib import script, tx, tx_out
 from btclib.sighash import (
-    get_sighash,
     _get_witness_v0_scriptCodes,
-    SegwitV0SignatureHash,
+    get_sighash,
+    segwit_v0_sighash,
 )
 
 
@@ -83,7 +83,7 @@ def test_native_p2wsh():
     script_code = _get_witness_v0_scriptCodes(
         script.decode(transaction.vin[1].txinwitness[-1])
     )[1]
-    sighash = SegwitV0SignatureHash(
+    sighash = segwit_v0_sighash(
         script_code, transaction, 1, 0x03, previous_txout.nValue
     )
     assert (
@@ -125,7 +125,7 @@ def test_native_p2wsh_2():
     script_code = _get_witness_v0_scriptCodes(
         script.decode(transaction.vin[1].txinwitness[-1])
     )[1]
-    sighash = SegwitV0SignatureHash(
+    sighash = segwit_v0_sighash(
         script_code, transaction, 1, 0x83, previous_txout_2.nValue
     )
     assert (

@@ -8,7 +8,7 @@
 # No part of btclib including this file, may be copied, modified, propagated,
 # or distributed except according to the terms contained in the LICENSE file.
 
-""" Bitcoin message signing (BMS).
+"""Bitcoin message signing (BMS).
 
 Bitcoin uses a P2PKH address-based scheme for message signature: such
 a signature does prove the control of the private key corresponding to
@@ -68,7 +68,7 @@ Explicitly, the recovery flag value is:
 where:
 
 - key_id is the index in the [0, 3] range identifying which of the
-  recovered public keys is the one associated to the address;
+  recovered public keys is the one associated to the address
 - compressed indicates if the address is the hash of the compressed
   public key representation
 - 27 identify a P2PKH address, which is the only kind of address
@@ -77,44 +77,43 @@ where:
   addresses, Electrum also check for P2WPKH-P2SH and P2WPKH
   (SegWit always uses compressed public keys);
   BIP137 (Trezor) uses, instead, 35 and 39 instead of 27
-  for P2WPKH-P2SH and P2WPKH (respectively).
+  for P2WPKH-P2SH and P2WPKH (respectively)
 
-+------+-----+-----------------------------------------------------+
-|  rec | key |                                                     |
-| flag |  id | address type                                        |
-+======+=====+=====================================================+
-|  27  |  0  | P2PKH uncompressed                                  |
-+------+-----+-----------------------------------------------------+
-|  28  |  1  | P2PKH uncompressed                                  |
-+------+-----+-----------------------------------------------------+
-|  29  |  2  | P2PKH uncompressed                                  |
-+------+-----+-----------------------------------------------------+
-|  30  |  3  | P2PKH uncompressed                                  |
-+------+-----+-----------------------------------------------------+
-|  31  |  0  | P2PKH compressed (also Electrum P2WPKH-P2SH/P2WPKH) |
-+------+-----+-----------------------------------------------------+
-|  32  |  1  | P2PKH compressed (also Electrum P2WPKH-P2SH/P2WPKH) |
-+------+-----+-----------------------------------------------------+
-|  33  |  2  | P2PKH compressed (also Electrum P2WPKH-P2SH/P2WPKH) |
-+------+-----+-----------------------------------------------------+
-|  34  |  3  | P2PKH compressed (also Electrum P2WPKH-P2SH/P2WPKH) |
-+------+-----+-----------------------------------------------------+
-|  35  |  0  | BIP137 (Trezor) P2WPKH-P2SH                         |
-+------+-----+-----------------------------------------------------+
-|  36  |  1  | BIP137 (Trezor) P2WPKH-P2SH                         |
-+------+-----+-----------------------------------------------------+
-|  37  |  2  | BIP137 (Trezor) P2WPKH-P2SH                         |
-+------+-----+-----------------------------------------------------+
-|  38  |  3  | BIP137 (Trezor) P2WPKH-P2SH                         |
-+------+-----+-----------------------------------------------------+
-|  39  |  0  | BIP137 (Trezor) P2WPKH                              |
-+------+-----+-----------------------------------------------------+
-|  40  |  1  | BIP137 (Trezor) P2WPKH                              |
-+------+-----+-----------------------------------------------------+
-|  41  |  2  | BIP137 (Trezor) P2WPKH                              |
-+------+-----+-----------------------------------------------------+
-|  42  |  3  | BIP137 (Trezor) P2WPKH                              |
-+------+-----+-----------------------------------------------------+
++----------+---------+-----------------------------------------------------+
+| rec flag |  key id | address type                                        |
++==========+=========+=====================================================+
+|    27    |    0    | P2PKH uncompressed                                  |
++----------+---------+-----------------------------------------------------+
+|    28    |    1    | P2PKH uncompressed                                  |
++----------+---------+-----------------------------------------------------+
+|    29    |    2    | P2PKH uncompressed                                  |
++----------+---------+-----------------------------------------------------+
+|    30    |    3    | P2PKH uncompressed                                  |
++----------+---------+-----------------------------------------------------+
+|    31    |    0    | P2PKH compressed (also Electrum P2WPKH-P2SH/P2WPKH) |
++----------+---------+-----------------------------------------------------+
+|    32    |    1    | P2PKH compressed (also Electrum P2WPKH-P2SH/P2WPKH) |
++----------+---------+-----------------------------------------------------+
+|    33    |    2    | P2PKH compressed (also Electrum P2WPKH-P2SH/P2WPKH) |
++----------+---------+-----------------------------------------------------+
+|    34    |    3    | P2PKH compressed (also Electrum P2WPKH-P2SH/P2WPKH) |
++----------+---------+-----------------------------------------------------+
+|    35    |    0    | BIP137 (Trezor) P2WPKH-P2SH                         |
++----------+---------+-----------------------------------------------------+
+|    36    |    1    | BIP137 (Trezor) P2WPKH-P2SH                         |
++----------+---------+-----------------------------------------------------+
+|    37    |    2    | BIP137 (Trezor) P2WPKH-P2SH                         |
++----------+---------+-----------------------------------------------------+
+|    38    |    3    | BIP137 (Trezor) P2WPKH-P2SH                         |
++----------+---------+-----------------------------------------------------+
+|    39    |    0    | BIP137 (Trezor) P2WPKH                              |
++----------+---------+-----------------------------------------------------+
+|    40    |    1    | BIP137 (Trezor) P2WPKH                              |
++----------+---------+-----------------------------------------------------+
+|    41    |    2    | BIP137 (Trezor) P2WPKH                              |
++----------+---------+-----------------------------------------------------+
+|    42    |    3    | BIP137 (Trezor) P2WPKH                              |
++----------+---------+-----------------------------------------------------+
 
 This implementation endorses the Electrum approach: a signature
 generated with a compressed WIF (i.e. without explicit address or
@@ -314,7 +313,7 @@ def assert_as_valid(msg: String, addr: String, sig: BMSig) -> None:
             err_msg = f"invalid recovery flag: {rf} (base58 address {addr!r})"
             raise ValueError(err_msg)
     else:
-        if rf > 38 or (30 < rf and rf < 35):  # P2WPKH
+        if rf > 38 or rf > 30 and rf < 35:  # P2WPKH
             if hash160(pubkey) != h160:
                 raise ValueError(f"wrong p2wpkh address: {addr!r}")
         else:
