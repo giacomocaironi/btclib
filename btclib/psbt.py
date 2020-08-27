@@ -13,18 +13,18 @@
 https://en.bitcoin.it/wiki/BIP_0174
 """
 
-from dataclasses import dataclass, field
-from typing import List, Dict, Tuple, Type, TypeVar, Optional, Union
 from base64 import b64decode, b64encode
 from copy import deepcopy
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple, Type, TypeVar, Union
 
-from .tx import Tx
-from .tx_in import witness_serialize, witness_deserialize
-from .tx_out import TxOut
+from . import script, varint
 from .alias import Token
-from .utils import hash160, sha256
 from .scriptpubkey import payload_from_scriptPubKey
-from . import varint, script
+from .tx import Tx
+from .tx_in import witness_deserialize, witness_serialize
+from .tx_out import TxOut
+from .utils import hash160, sha256
 
 
 # maybe integrate in bip32?
@@ -34,10 +34,7 @@ def decode_der_path(path: bytes) -> str:
     for x in range(len(path) // 4):
         out += "/"
         index = int.from_bytes(path[4 * x : 4 * (x + 1)], "little")
-        if index >= 0x80000000:
-            out += str(index - 0x80000000) + "h"
-        else:
-            out += str(index)
+        out += str(index - 0x80000000) + "h" if index >= 0x80000000 else str(index)
     return out
 
 
@@ -57,11 +54,11 @@ def encode_der_path(path: str) -> bytes:
     return out
 
 
-_PsbtInput = TypeVar("_PsbtInput", bound="PsbtInput")
+_PsbtIn = TypeVar("_PsbtIn", bound="PsbtIn")
 
 
 @dataclass
-class PsbtInput:
+class PsbtIn:
     non_witness_utxo: Optional[Tx] = None
     witness_utxo: Optional[TxOut] = None
     partial_sigs: Dict[str, str] = field(default_factory=dict)
@@ -76,7 +73,7 @@ class PsbtInput:
     unknown: Dict[str, str] = field(default_factory=dict)
 
     @classmethod
-    def decode(cls: Type[_PsbtInput], input_map: Dict[bytes, bytes]) -> _PsbtInput:
+    def decode(cls: Type[_PsbtIn], input_map: Dict[bytes, bytes]) -> _PsbtIn:
         non_witness_utxo = None
         witness_utxo = None
         partial_sigs = {}
@@ -122,7 +119,6 @@ class PsbtInput:
             elif key[0] == 0x08:
                 assert len(key) == 1
                 final_script_witness = witness_deserialize(value)
-                pass
             elif key[0] == 0x09:
                 assert len(key) == 1
                 por_commitment = value.hex()  # TODO: bip127
@@ -210,11 +206,11 @@ class PsbtInput:
         pass
 
 
-_PsbtOutput = TypeVar("_PsbtOutput", bound="PsbtOutput")
+_PsbtOut = TypeVar("_PsbtOut", bound="PsbtOut")
 
 
 @dataclass
-class PsbtOutput:
+class PsbtOut:
     redeem_script: List[Token] = field(default_factory=list)
     witness_script: List[Token] = field(default_factory=list)
     hd_keypaths: Dict[str, Dict[str, str]] = field(default_factory=dict)
@@ -222,7 +218,7 @@ class PsbtOutput:
     unknown: Dict[str, str] = field(default_factory=dict)
 
     @classmethod
-    def decode(cls: Type[_PsbtOutput], output_map: Dict[bytes, bytes]) -> _PsbtOutput:
+    def decode(cls: Type[_PsbtOut], output_map: Dict[bytes, bytes]) -> _PsbtOut:
         redeem_script = []
         witness_script = []
         hd_keypaths = {}
@@ -300,8 +296,8 @@ _PSbt = TypeVar("_PSbt", bound="Psbt")
 @dataclass
 class Psbt:
     tx: Tx
-    inputs: List[PsbtInput]
-    outputs: List[PsbtOutput]
+    inputs: List[PsbtIn]
+    outputs: List[PsbtOut]
     version: Optional[int] = 0
     hd_keypaths: Dict[str, Dict[str, str]] = field(default_factory=dict)
     proprietary: Dict[int, Dict[str, str]] = field(default_factory=dict)
@@ -348,14 +344,14 @@ class Psbt:
         output_len = len(tx.vout)
 
         inputs = []
-        for i in range(input_len):
+        for _ in range(input_len):
             input_map, data = deserialize_map(data)
-            inputs.append(PsbtInput.decode(input_map))
+            inputs.append(PsbtIn.decode(input_map))
 
         outputs = []
         for i in range(output_len):
             output_map, data = deserialize_map(data)
-            outputs.append(PsbtOutput.decode(output_map))
+            outputs.append(PsbtOut.decode(output_map))
 
         psbt = cls(
             tx=tx,
@@ -476,28 +472,22 @@ def psbt_from_tx(tx: Tx) -> Psbt:
     for input in tx.vin:
         input.scriptSig = []
         input.txinwitness = []
-    inputs = [PsbtInput() for _ in tx.vin]
-    outputs = [PsbtOutput() for _ in tx.vout]
+    inputs = [PsbtIn() for _ in tx.vin]
+    outputs = [PsbtOut() for _ in tx.vout]
     return Psbt(tx=tx, inputs=inputs, outputs=outputs, unknown={})
 
 
 def _combine_field(
-    psbt_map: Union[PsbtInput, PsbtOutput, Psbt],
-    out: Union[PsbtInput, PsbtOutput, Psbt],
-    key: str,
+    psbt_map: Union[PsbtIn, PsbtOut, Psbt], out: Union[PsbtIn, PsbtOut, Psbt], key: str
 ) -> None:
     item: Union[Union[int, Tx, TxOut], Dict[str, str]] = getattr(psbt_map, key)
     a: Union[Union[int, Tx, TxOut], Dict[str, str]] = getattr(out, key)
-    if isinstance(item, dict):
-        if a and isinstance(a, dict):
-            a.update(item)
-        else:
-            setattr(out, key, item)
+    if isinstance(item, dict) and a and isinstance(a, dict):
+        a.update(item)
+    elif isinstance(item, dict) or item and not a:
+        setattr(out, key, item)
     elif item:
-        if a:
-            assert item == a, key
-        else:
-            setattr(out, key, item)
+        assert item == a, key
 
 
 def combine_psbts(psbts: List[Psbt]) -> Psbt:
@@ -522,7 +512,7 @@ def combine_psbts(psbts: List[Psbt]) -> Psbt:
             _combine_field(psbt.inputs[x], final_psbt.inputs[x], "proprietary")
             _combine_field(psbt.inputs[x], final_psbt.inputs[x], "unknown")
 
-        for y in range(len(final_psbt.outputs)):
+        for _ in final_psbt.outputs:
             _combine_field(psbt.outputs[x], final_psbt.outputs[x], "redeem_script")
             _combine_field(psbt.outputs[x], final_psbt.outputs[x], "witness_script")
             _combine_field(psbt.outputs[x], final_psbt.outputs[x], "hd_keypaths")

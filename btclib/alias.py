@@ -14,13 +14,22 @@ mypy aliases, documenting also coding imput conventions.
 """
 
 
-from typing import Any, BinaryIO, Callable, Iterable, List, Tuple, TypedDict, Union
+from typing import (
+    Any,
+    BinaryIO,
+    Callable,
+    Iterable,
+    List,
+    Tuple,
+    TypedDict,
+    Union,
+)
 
 # binary octets are eight-bit bytes or hex-string (not text string)
 #
 # use bytes_from_octets to properly convert to bytes
 #
-# used for script, h160 (20 bytes), h256 (32 bytes),
+# used for serialized script, h160 (20 bytes), h256 (32 bytes),
 # bip32version (4 bytes), sighash (1 byte),
 # dersig (DER serialization of ECDSA signature),
 # msgsig (Bitcoin message compact signature serialization, 65 bytes),

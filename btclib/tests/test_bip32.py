@@ -23,14 +23,14 @@ from btclib.base58address import p2pkh  # FIXME why it is needed here
 def test_indexes_from_path() -> None:
 
     test_vectors = [
-        # bitcoin core, account 0, external branch, address_index 463
+        # account 0, external branch, address_index 463
         ("m / 0 h / 0 / 463", True, [0x80000000, 0, 463]),
         (". / 0 h / 0 / 463", False, [0x80000000, 0, 463]),
         ("m / 0 H / 0 / 463", True, [0x80000000, 0, 463]),
         (". / 0 H / 0 / 463", False, [0x80000000, 0, 463]),
         ("m /  0' / 0 / 463", True, [0x80000000, 0, 463]),
         (". /  0' / 0 / 463", False, [0x80000000, 0, 463]),
-        # bitcoin core, account 0, internal branch, address_index 267
+        # account 0, internal branch, address_index 267
         ("m / 0 h / 1 / 267", True, [0x80000000, 1, 267]),
         (". / 0 h / 1 / 267", False, [0x80000000, 1, 267]),
         ("m / 0 H / 1 / 267", True, [0x80000000, 1, 267]),
@@ -52,9 +52,9 @@ def test_indexes_from_path() -> None:
 
 def test_exceptions() -> None:
 
-    # invalid checksum
-    xprv = "xppp9s21ZrQH143K2oxHiQ5f7D7WYgXD9h6HAXDBuMoozDGGiYHWsq7TLBj2yvGuHTLSPCaFmUyN1v3fJRiY2A4YuNSrqQMPVLZKt76goL6LP7L"
     with pytest.raises(ValueError, match="not a private or public key: "):
+        # invalid checksum
+        xprv = "xppp9s21ZrQH143K2oxHiQ5f7D7WYgXD9h6HAXDBuMoozDGGiYHWsq7TLBj2yvGuHTLSPCaFmUyN1v3fJRiY2A4YuNSrqQMPVLZKt76goL6LP7L"
         p2pkh(xprv)
 
     xpub = "xpub6H1LXWLaKsWFhvm6RVpEL9P4KfRZSW7abD2ttkWP3SSQvnyA8FSVqNTEcYFgJS2UaFcxupHiYkro49S8yGasTvXEYBVPamhGW6cFJodrTHy"
@@ -67,13 +67,13 @@ def test_exceptions() -> None:
     with pytest.raises(ValueError, match="invalid chain code length: "):
         xpub_dict = bip32.deserialize(xpub_dict)
     xpub_dict = bip32.deserialize(xpub)
-    xpub_dict["chain_code"] = "length is 32 but not a chaincode"
+    xpub_dict["chain_code"] = "length is 32 but not a chaincode"  # type: ignore
     with pytest.raises(ValueError, match="invalid chain code"):
         xpub_dict = bip32.deserialize(xpub_dict)
 
-    version = b"\x04\x88\xAD\xE5"
     seed = "5b56c417303faa3fcba7e57400e120a0"
     with pytest.raises(ValueError, match="unknown private key version: "):
+        version = b"\x04\x88\xAD\xE5"
         bip32.rootxprv_from_seed(seed, version)
 
     with pytest.raises(ValueError, match="too many bits for seed: "):
@@ -98,7 +98,7 @@ def test_deserialize() -> None:
     # no harm in deserializing again an already deserialized key
     xprv_dict = bip32.deserialize(xprv_dict)
     xpr2 = bip32.serialize(xprv_dict)
-    assert xpr2.decode(), xprv
+    assert xpr2.decode() == xprv
 
     xpub = bip32.xpub_from_xprv(xprv)
     xpub2 = bip32.xpub_from_xprv(bip32.deserialize(xprv))
@@ -216,8 +216,8 @@ def test_derive() -> None:
         ],
     }
 
-    for rootxprv in test_vectors:
-        for der_path, address in test_vectors[rootxprv]:
+    for rootxprv, value in test_vectors.items():
+        for der_path, address in value:
             assert address == p2pkh(bip32.derive(rootxprv, der_path)).decode()
 
             b_indexes, _ = bip32._indexes_from_path(der_path)

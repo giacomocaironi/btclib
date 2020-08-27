@@ -149,7 +149,7 @@ def binstr_from_bytes(bytes_entropy: Octets, bits: OneOrMoreInt = _bits) -> BinS
     return binstr_from_int(int_entropy, n_bits)
 
 
-def binstr_from_int(int_entropy: int, bits: OneOrMoreInt = _bits) -> BinStr:
+def binstr_from_int(int_entropy: Union[int, str], bits: OneOrMoreInt = _bits) -> BinStr:
     """Return raw entropy from the input integer entropy.
 
     Input entropy can be expressed as int
@@ -242,7 +242,7 @@ def collect_rolls(bits: int) -> Tuple[int, List[int]]:
         msg += "; prefix with 'a' to automate rolls, hit enter for 'a6'): "
         dice_sides_str = input(msg)
         dice_sides_str = dice_sides_str.lower()
-        if dice_sides_str == "" or dice_sides_str == "a":
+        if dice_sides_str in ["", "a"]:
             automate = True
             dice_sides = 6
         else:
@@ -279,7 +279,7 @@ def collect_rolls(bits: int) -> Tuple[int, List[int]]:
 
 
 def binstr_from_rolls(
-    bits: int, dice_sides: int, rolls: List[int], shuffle: bool = True,
+    bits: int, dice_sides: int, rolls: List[int], shuffle: bool = True
 ) -> BinStr:
     """Return raw entropy from the input dice rolls.
 

@@ -17,16 +17,12 @@ from .utils import bytes_from_octets, hash256
 
 
 # workaround to handle CTransactions
-def get_bytes(a: Union[int, str]) -> bytes:
-
-    if isinstance(a, int):
-        return int.to_bytes(a, 32, "big")
-    else:
-        return bytes.fromhex(a)
+def _get_bytes(a: Union[int, str]) -> bytes:
+    return int.to_bytes(a, 32, "big") if isinstance(a, int) else bytes.fromhex(a)
 
 
 # https://github.com/bitcoin/bitcoin/blob/4b30c41b4ebf2eb70d8a3cd99cf4d05d405eec81/test/functional/test_framework/script.py#L673
-def SegwitV0SignatureHash(
+def segwit_v0_sighash(
     scriptCode: Octets, transaction: tx.Tx, input_index: int, hashtype: int, amount: int
 ) -> bytes:
 
@@ -34,7 +30,7 @@ def SegwitV0SignatureHash(
     if hashtype_hex[0] != "8":
         hashPrevouts = b""
         for vin in transaction.vin:
-            hashPrevouts += get_bytes(vin.prevout.hash)[::-1]
+            hashPrevouts += _get_bytes(vin.prevout.hash)[::-1]
             hashPrevouts += vin.prevout.n.to_bytes(4, "little")
         hashPrevouts = hash256(hashPrevouts)
     else:
@@ -48,7 +44,7 @@ def SegwitV0SignatureHash(
     else:
         hashSequence = b"\x00" * 32
 
-    if not hashtype_hex[1] == "2" and not hashtype_hex[1] == "3":
+    if hashtype_hex[1] != "2" and hashtype_hex[1] != "3":
         hashOutputs = b""
         for vout in transaction.vout:
             hashOutputs += vout.serialize()
@@ -60,7 +56,7 @@ def SegwitV0SignatureHash(
 
     scriptCode = bytes_from_octets(scriptCode)
 
-    outpoint = get_bytes(transaction.vin[input_index].prevout.hash)[::-1]
+    outpoint = _get_bytes(transaction.vin[input_index].prevout.hash)[::-1]
     outpoint += transaction.vin[input_index].prevout.n.to_bytes(4, "little")
 
     preimage = transaction.nVersion.to_bytes(4, "little")
@@ -74,11 +70,10 @@ def SegwitV0SignatureHash(
     preimage += transaction.nLockTime.to_bytes(4, "little")
     preimage += bytes.fromhex(hashtype_hex)
 
-    sig_hash = hash256(preimage)
-    return sig_hash
+    return hash256(preimage)
 
 
-# FIXME: remove OP_CODESEPARATOR only if exectued
+# FIXME: remove OP_CODESEPARATOR only if executed
 def _get_witness_v0_scriptCodes(scriptPubKey: Script) -> List[str]:
     scriptCodes: List[str] = []
     try:
@@ -100,16 +95,12 @@ def _get_witness_v0_scriptCodes(scriptPubKey: Script) -> List[str]:
     return scriptCodes
 
 
-# def _get_sighash():
-#     pass
-
-
 def get_sighash(
     transaction: tx.Tx,
     previous_output: tx_out.TxOut,
     input_index: int,
     sighash_type: int,
-) -> List[bytes]:
+) -> bytes:
 
     value = previous_output.nValue
 
@@ -121,29 +112,16 @@ def get_sighash(
     if len(scriptPubKey) == 2 and scriptPubKey[0] == 0:  # is segwit
         script_type = payload_from_scriptPubKey(scriptPubKey)[0]
         if script_type == "p2wpkh":
-            scriptCodes = _get_witness_v0_scriptCodes(scriptPubKey)
+            scriptCode = _get_witness_v0_scriptCodes(scriptPubKey)[0]
         elif script_type == "p2wsh":
             # the real script is contained in the witness
-            scriptCodes = _get_witness_v0_scriptCodes(
+            scriptCode = _get_witness_v0_scriptCodes(
                 script.decode(transaction.vin[input_index].txinwitness[-1])
-            )
-        sighash: List[bytes] = []
-        for scriptCode in scriptCodes:
-            sighash.append(
-                SegwitV0SignatureHash(
-                    bytes.fromhex(scriptCode),
-                    transaction,
-                    input_index,
-                    sighash_type,
-                    value,
-                )
-            )
-        return sighash
-    raise RuntimeError("Does not yet support legacy transactions")
-
-    # else:
-    #     scriptCode = _get_witness_scriptCode(scriptPubKey)
-    #     sighash = _get_witness_sighash(transaction, input_index, scriptCode, value)
+            )[0]
+        return segwit_v0_sighash(
+            bytes.fromhex(scriptCode), transaction, input_index, sighash_type, value
+        )
+    raise RuntimeError("legacy transactions not supported yet")
 
 
 # def sign(

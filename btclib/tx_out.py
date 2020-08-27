@@ -35,6 +35,7 @@ class TxOut:
 
     def serialize(self) -> bytes:
         out = self.nValue.to_bytes(8, "little")
+        # FIXME: use script.serialize instead
         script_bytes = script.encode(self.scriptPubKey)
         out += varint.encode(len(script_bytes))
         out += script_bytes
@@ -43,7 +44,7 @@ class TxOut:
     def assert_valid(self) -> None:
         if self.nValue < 0:
             raise ValueError(f"negative value: {self.nValue}")
-        if 2099999997690000 < self.nValue:
+        if self.nValue > 2099999997690000:
             raise ValueError(f"value too high: {self.nValue}")
         if len(self.scriptPubKey) == 0:
             raise ValueError(f"empty scriptPubKey: {self.scriptPubKey}")
