@@ -13,13 +13,7 @@
 import pytest
 
 from btclib import script
-from btclib.psbt import (
-    Psbt,
-    combine_psbts,
-    extract_tx,
-    finalize_psbt,
-    psbt_from_tx,
-)
+from btclib.psbt import Psbt, combine_psbts, extract_tx, finalize_psbt, psbt_from_tx
 from btclib.tx import Tx
 from btclib.tx_in import OutPoint, TxIn
 from btclib.tx_out import TxOut
@@ -203,14 +197,12 @@ def test_creation():
     input_1 = TxIn(
         OutPoint("75ddabb27b8845f5247975c8a5ba7c6f336c4570708ebe230caf6db5217ae858", 0),
         [],
-        "",
         256 ** 4 - 1,
         [],
     )
     input_2 = TxIn(
         OutPoint("1dea7cd05979072a3578cab271c02244ea8a090bbb46aa680a65ecd027048d83", 1),
         [],
-        "",
         256 ** 4 - 1,
         [],
     )
@@ -309,7 +301,6 @@ def test_output_scripts_serialization():
     input_1 = TxIn(
         OutPoint("75ddabb27b8845f5247975c8a5ba7c6f336c4570708ebe230caf6db5217ae858", 0),
         [],
-        "",
         256 ** 4 - 1,
         [],
     )
@@ -389,7 +380,6 @@ def test_valid_sign_2():
     transaction_input = TxIn(
         OutPoint("75ddabb27b8845f5247975c8a5ba7c6f336c4570708ebe230caf6db5217ae858", 0),
         [],
-        "",
         256 ** 4 - 1,
         [],
     )

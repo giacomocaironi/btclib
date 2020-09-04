@@ -11,79 +11,15 @@
 "Tests for `btclib.sighash` module."
 
 # test vector at https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki
-from btclib import script, dsa
+from btclib import script, dsa, der
 from btclib.tx_in import TxIn, OutPoint
 from btclib.tx_out import TxOut
 from btclib.tx import Tx
 from btclib.sighash import _get_witness_v0_scriptCodes, get_sighash, segwit_v0_sighash
+from btclib.curvemult import mult
+from btclib.secpoint import bytes_from_point
 
 
-def test_first_transaction():
-    transaction = Tx.deserialize(
-        "0100000001c997a5e56e104102fa209c6a852dd90660a20b2d9c352423edce25857fcd3704000000004847304402204e45e16932b8af514961a1d3a1a25fdf3f4f7732e9d624c6c61548ab5fb8cd410220181522ec8eca07de4860a4acdd12909d831cc56cbbac4622082221a8768d1d0901ffffffff0200ca9a3b00000000434104ae1a62fe09c5f51b13905f07f06b99a2f7159b2225f374cd378d71302fa28414e7aab37397f554a7df5f142c21c1b7303b8a0626f1baded5c72a704f7e6cd84cac00286bee0000000043410411db93e1dcdb8a016b49840f8c53bc1eb68a382e97b1482ecad7b148a6909a5cb2e0eaddfb84ccf9744464f82e160bfa9b8b64f9d4c03f999b8643f656b412a3ac00000000"
-    )
-    previous_txout = TxOut(
-        nValue=5000000000,
-        scriptPubKey=script.decode(
-            "410411db93e1dcdb8a016b49840f8c53bc1eb68a382e97b1482ecad7b148a6909a5cb2e0eaddfb84ccf9744464f82e160bfa9b8b64f9d4c03f999b8643f656b412a3ac"
-        ),
-    )
-    sighash = get_sighash(transaction, previous_txout, 0, 0x01)
-    assert (
-        sighash.hex()
-        == "7a05c6145f10101e9d6325494245adf1297d80f8f38d4d576d57cdba220bcb19"
-    )
-    pubkey = "0411db93e1dcdb8a016b49840f8c53bc1eb68a382e97b1482ecad7b148a6909a5cb2e0eaddfb84ccf9744464f82e160bfa9b8b64f9d4c03f999b8643f656b412a3"
-    signature = "304402204E45E16932B8AF514961A1D3A1A25FDF3F4F7732E9D624C6C61548AB5FB8CD410220181522EC8ECA07DE4860A4ACDD12909D831CC56CBBAC4622082221A8768D1D0901"
-    assert dsa._verify(sighash, bytes.fromhex(pubkey), bytes.fromhex(signature)[:-1])
-
-
-# 8fea2a92db2940ebce62610b162bfe0ca13229e08cb384a886a6f677e2812e52
-def test_random():
-    pubkey = "04280c8f66bf2ccaeb3f60a19ad4a06365f8bd6178aab0e709df2173df8f553366549aec336aae8742a84702b6c7c3052d89f5d76d535ec3716e72187956351613"
-    signature = "3045022100ea43c4800d1a860ec89b5273898a146cfb01d34ff4c364d24a110c480d0e3f7502201c82735577f932f1ca8e1c54bf653e0f8e74e408fe83666bc85cac4472ec950801"
-    scriptSig = [signature, pubkey]
-    previous_txout = TxOut(
-        1051173696,
-        [
-            "OP_DUP",
-            "OP_HASH160",
-            "82ac30f58baf99ec9d14e6181eee076f4e27f69c",
-            "OP_EQUALVERIFY",
-            "OP_CHECKSIG",
-        ],
-    )
-    recieving_tx = Tx(
-        1,
-        0,
-        vin=[
-            TxIn(
-                OutPoint(
-                    "d8343a35ba951684f2969eafe833d9e6fe436557b9707ae76802875952e860fc",
-                    1,
-                ),
-                scriptSig,
-                "",
-                0xFFFFFFFF,
-                [],
-            )
-        ],
-        vout=[
-            TxOut(
-                2017682,
-                script.decode("76a91413bd20236d0da56492c325dce289b4da35b4b5bd88ac"),
-            ),
-            TxOut(
-                1049154982,
-                script.decode("76a914da169b45781ca210f8c11617ba66bd843da76b1688ac"),
-            ),
-        ],
-    )
-    sighash = get_sighash(recieving_tx, previous_txout, 0, 0x01)
-    assert dsa._verify(sighash, bytes.fromhex(pubkey), bytes.fromhex(signature)[:-1])
-
-
-# next are segwitv0 tests
 def test_native_p2wpkh():
     transaction = Tx.deserialize(
         "0100000002fff7f7881a8099afa6940d42d1e7f6362bec38171ea3edf433541db4e4ad969f0000000000eeffffffef51e1b804cc89d182d279655c3aa89e815b1b309fe287d9b2b55d57b90ec68a0100000000ffffffff02202cb206000000001976a9148280b37df378db99f66f85c95a783a76ac7a6d5988ac9093510d000000001976a9143bde42dbee7e4dbe6a21b2d50ce2f0167faa815988ac11000000"
