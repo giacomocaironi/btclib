@@ -30,26 +30,29 @@ def legacy_sighash(
         txin.scriptSig = []
     # TODO: delete sig from scriptCode (even if non standard)
     new_tx.vin[input_index].scriptSig = script.decode(scriptCode)
-
-    hashtype_hex: str = hashtype.to_bytes(4, "little").hex()
-    if hashtype_hex[1] == "2":
+    if hashtype & 31 == 0x02:
         new_tx.vout = []
+        for i, txin in enumerate(new_tx.vin):
+            if i != input_index:
+                txin.nSequence = 0
 
-    if hashtype_hex[1] == "3":
+    if hashtype & 31 == 0x03:
+        # sighash single bug
         if input_index >= len(new_tx.vout):
             return (256 ** 31).to_bytes(32, "big")
-        new_tx.vout = new_tx.vout[:input_index]
+        new_tx.vout = new_tx.vout[: input_index + 1]
         for txout in new_tx.vout[:-1]:
             txout.scriptPubKey = []
             txout.nValue = 256 ** 8 - 1
-        for txin in new_tx.vin[:-1]:
-            txin.nSequence = 0
+        for i, txin in enumerate(new_tx.vin):
+            if i != input_index:
+                txin.nSequence = 0
 
-    if hashtype_hex[0] == "8":
+    if hashtype & 0x80:
         new_tx.vin = [new_tx.vin[input_index]]
 
     preimage = new_tx.serialize()
-    preimage += bytes.fromhex(hashtype_hex)
+    preimage += hashtype.to_bytes(4, "little")
 
     return hash256(preimage)
 
@@ -151,9 +154,12 @@ def get_sighash(
     value = previous_output.nValue
 
     scriptPubKey = previous_output.scriptPubKey
-    script_type = payload_from_scriptPubKey(scriptPubKey)[0]
-    if script_type == "p2sh":
-        scriptPubKey = transaction.vin[input_index].scriptSig
+    try:
+        script_type = payload_from_scriptPubKey(scriptPubKey)[0]
+        if script_type == "p2sh":
+            scriptPubKey = transaction.vin[input_index].scriptSig
+    except:
+        pass
 
     if len(scriptPubKey) == 2 and scriptPubKey[0] == 0:  # is segwit
         script_type = payload_from_scriptPubKey(scriptPubKey)[0]

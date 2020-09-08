@@ -15,9 +15,13 @@ from btclib import script, dsa, der
 from btclib.tx_in import TxIn, OutPoint
 from btclib.tx_out import TxOut
 from btclib.tx import Tx
-from btclib.sighash import _get_witness_v0_scriptCodes, get_sighash, segwit_v0_sighash
+from btclib.sighash import get_sighash, legacy_sighash, _get_legacy_scriptCodes
 from btclib.curvemult import mult
 from btclib.secpoint import bytes_from_point
+from btclib.script import decode
+
+import json
+import os
 
 # block 170
 def test_first_transaction():
@@ -90,37 +94,21 @@ def test_p2pk():
     signature = "304402200A5C6163F07B8D3B013C4D1D6DBA25E780B39658D79BA37AF7057A3B7F15FFA102201FD9B4EAA9943F734928B99A83592C2E7BF342EA2680F6A2BB705167966B742001"
     scriptPubKey = [pubkey, "OP_CHECKSIG"]
     scriptSig = [signature]
+
+    founding_tx_script = [script.encode([0, 0])]
     founding_tx = Tx(
         1,
         0,
-        vin=[
-            TxIn(
-                OutPoint("00" * 32, 0xFFFFFFFF), [script.encode([0, 0])], 0xFFFFFFFF, []
-            )
-        ],
+        vin=[TxIn(OutPoint("00" * 32, 0xFFFFFFFF), founding_tx_script, 0xFFFFFFFF, [])],
         vout=[TxOut(0, scriptPubKey)],
     )
-    recieving_tx = Tx(
+    receiving_tx = Tx(
         1,
         0,
-        vin=[
-            TxIn(
-                OutPoint(founding_tx.txid, 0),
-                [script.encode(scriptSig)],
-                0xFFFFFFFF,
-                [],
-            )
-        ],
+        vin=[TxIn(OutPoint(founding_tx.txid, 0), scriptSig, 0xFFFFFFFF, [])],
         vout=[TxOut(0, [])],
     )
-    sighash = get_sighash(recieving_tx, founding_tx.vout[0], 0, 0x01)
-
-    assert dsa._verify(
-        sighash,
-        bytes_from_point(mult(10)).hex(),
-        der._serialize(*dsa._sign(sighash, 10)).hex(),
-    )
-
+    sighash = get_sighash(receiving_tx, founding_tx.vout[0], 0, 0x01)
     assert dsa._verify(sighash, bytes.fromhex(pubkey), bytes.fromhex(signature)[:-1])
 
 
@@ -135,28 +123,77 @@ def test_p2pkh():
         "OP_CHECKSIG",
     ]
     scriptSig = [signature, pubkey]
+
+    founding_tx_script = [script.encode([0, 0])]
     founding_tx = Tx(
         1,
         0,
-        vin=[
-            TxIn(
-                OutPoint("00" * 32, 0xFFFFFFFF), [script.encode([0, 0])], 0xFFFFFFFF, []
-            )
-        ],
+        vin=[TxIn(OutPoint("00" * 32, 0xFFFFFFFF), founding_tx_script, 0xFFFFFFFF, [])],
         vout=[TxOut(0, scriptPubKey)],
     )
-    recieving_tx = Tx(
+    receiving_tx = Tx(
         1,
         0,
-        vin=[
-            TxIn(
-                OutPoint(founding_tx.txid, 0),
-                [script.encode(scriptSig)],
-                0xFFFFFFFF,
-                [],
-            )
-        ],
+        vin=[TxIn(OutPoint(founding_tx.txid, 0), scriptSig, 0xFFFFFFFF, [])],
         vout=[TxOut(0, [])],
     )
-    sighash = get_sighash(recieving_tx, founding_tx.vout[0], 0, 0x01)
+    sighash = get_sighash(receiving_tx, founding_tx.vout[0], 0, 0x01)
     assert dsa._verify(sighash, bytes.fromhex(pubkey), bytes.fromhex(signature)[:-1])
+
+
+def test_p2pk_anyonecanpay():
+    pubkey = "048282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f5150811f8a8098557dfe45e8256e830b60ace62d613ac2f7b17bed31b6eaff6e26caf"
+    signature = "304402204710a85181663b32d25c70ec2bbd14adff5ddfff6cb50d09e155ef5f541fc86c0220056b0cc949be9386ecc5f6c2ac0493269031dbb185781db90171b54ac127790281"
+    scriptPubKey = [pubkey, "OP_CHECKSIG"]
+    scriptSig = [signature]
+
+    founding_tx_script = [script.encode([0, 0])]
+    founding_tx = Tx(
+        1,
+        0,
+        vin=[TxIn(OutPoint("00" * 32, 0xFFFFFFFF), founding_tx_script, 0xFFFFFFFF, [])],
+        vout=[TxOut(0, scriptPubKey)],
+    )
+    receiving_tx = Tx(
+        1,
+        0,
+        vin=[TxIn(OutPoint(founding_tx.txid, 0), scriptSig, 0xFFFFFFFF, [])],
+        vout=[TxOut(0, [])],
+    )
+    sighash = get_sighash(receiving_tx, founding_tx.vout[0], 0, 0x81)
+    assert dsa._verify(sighash, bytes.fromhex(pubkey), bytes.fromhex(signature)[:-1])
+
+
+def test_sighashsingle_bug():
+    pubkey = "02D5C25ADB51B61339D2B05315791E21BBE80EA470A49DB0135720983C905AACE0"
+    signature = "3045022100C9CDD08798A28AF9D1BAF44A6C77BCC7E279F47DC487C8C899911BC48FEAFFCC0220503C5C50AE3998A733263C5C0F7061B483E2B56C4C41B456E7D2F5A78A74C07703"
+    scriptPubKey = [
+        "OP_DUP",
+        "OP_HASH160",
+        "5b6462475454710f3c22f5fdf0b40704c92f25c3",
+        "OP_EQUALVERIFY",
+        "OP_CHECKSIGVERIFY",
+        1,
+    ]
+
+    previous_txout = TxOut(0, scriptPubKey)
+    tx = Tx.deserialize(
+        "01000000020002000000000000000000000000000000000000000000000000000000000000000000000151ffffffff0001000000000000000000000000000000000000000000000000000000000000000000006b483045022100c9cdd08798a28af9d1baf44a6c77bcc7e279f47dc487c8c899911bc48feaffcc0220503c5c50ae3998a733263c5c0f7061b483e2b56c4c41b456e7d2f5a78a74c077032102d5c25adb51b61339d2b05315791e21bbe80ea470a49db0135720983c905aace0ffffffff010000000000000000015100000000"
+    )
+    sighash = get_sighash(tx, previous_txout, 1, 0x03)
+    assert dsa._verify(sighash, bytes.fromhex(pubkey), bytes.fromhex(signature)[:-1])
+
+
+def test_sighash_json():
+    path = os.path.join(os.path.dirname(__file__), "test_data", "legacy_sighash.json")
+    with open(path) as f:
+        data = json.load(f)
+    data = data[1:]
+    for raw_transaction, raw_script, input_index, hashType, sighash in data:
+        if hashType < 0:
+            hashType = 0xFFFFFFFF + 1 + hashType
+        tx = Tx.deserialize(raw_transaction)
+        script = decode(raw_script)
+        sighash = bytes.fromhex(sighash)[::-1].hex()
+        scriptCode = _get_legacy_scriptCodes(script)[0]
+        assert sighash == legacy_sighash(scriptCode, tx, input_index, hashType).hex()

@@ -149,13 +149,6 @@ def test_invalid_tx_out2() -> None:
         transaction_output.assert_valid()
 
 
-def test_invalid_tx_out3() -> None:
-    transaction_output = tx_out.TxOut(nValue=1, scriptPubKey=[])
-
-    with pytest.raises(ValueError):
-        transaction_output.assert_valid()
-
-
 def test_missing_tx_in() -> None:
     transaction = tx.Tx(0, 0, [], [])
     err_msg = "A transaction must have at least one input"
