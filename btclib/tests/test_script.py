@@ -68,8 +68,8 @@ def test_simple() -> None:
 
 def test_exceptions() -> None:
 
-    scriptPubKey: List[Token] = [2, 3, "OP_ADD", 5, "OP_VERIF"]
-    err_msg = "invalid string token: OP_VERIF"
+    scriptPubKey: List[Token] = [2, 3, "OP_ADD", 5, "OP_RETURN_244"]
+    err_msg = "invalid string token: OP_RETURN_244"
     with pytest.raises(ValueError, match=err_msg):
         script.encode(scriptPubKey)
 

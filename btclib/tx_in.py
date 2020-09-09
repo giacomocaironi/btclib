@@ -44,12 +44,16 @@ class OutPoint:
 
 _TxIn = TypeVar("_TxIn", bound="TxIn")
 
+# TODO: scriptSig for coinbase transactions is now stored as a script with only one value,
+# which is the encoded raw script. This simplify the code but makes it  awful to create
+# coinbase transactions. One solution might be creating a Script class that as both
+# a bytes and a decoded representation
+
 
 @dataclass
 class TxIn:
     prevout: OutPoint
     scriptSig: List[Token]
-    scriptSigHex: str
     nSequence: int
     txinwitness: List[str]
 
@@ -62,9 +66,8 @@ class TxIn:
             is_coinbase = True
         script_length = varint.decode(stream)
         scriptSig: List[Token] = []
-        scriptSigHex = ""
         if is_coinbase:
-            scriptSigHex = stream.read(script_length).hex()
+            scriptSig = [stream.read(script_length)]
         else:
             scriptSig = script.decode(stream.read(script_length))
         nSequence = int.from_bytes(stream.read(4), "little")
@@ -72,7 +75,6 @@ class TxIn:
         tx_in = cls(
             prevout=prevout,
             scriptSig=scriptSig,
-            scriptSigHex=scriptSigHex,
             nSequence=nSequence,
             txinwitness=txinwitness,
         )
@@ -82,11 +84,10 @@ class TxIn:
     def serialize(self) -> bytes:
         out = self.prevout.serialize()
         if self.prevout.hash == "00" * 32 and self.prevout.n == 256 ** 4 - 1:
-            script_bytes = bytes.fromhex(self.scriptSigHex)
+            out += varint.encode(len(self.scriptSig[0]))
+            out += self.scriptSig[0]
         else:
-            script_bytes = script.encode(self.scriptSig)
-        out += varint.encode(len(script_bytes))
-        out += script_bytes
+            out += script.serialize(self.scriptSig)
         out += self.nSequence.to_bytes(4, "little")
         return out
 

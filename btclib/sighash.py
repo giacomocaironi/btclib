@@ -9,6 +9,7 @@
 # or distributed except according to the terms contained in the LICENSE file.
 
 from typing import List, Union
+from copy import deepcopy
 
 from . import script, tx, tx_out, varint
 from .alias import Octets, Script, Token
@@ -22,9 +23,45 @@ SIGHASH_NONE = 0x02
 SIGHASH_SINGLE = 0x03
 SIGHASH_ANYONECANPAY = 0x80
 
+
 # workaround to handle CTransactions
 def _get_bytes(a: Union[int, str]) -> bytes:
     return int.to_bytes(a, 32, "big") if isinstance(a, int) else bytes.fromhex(a)
+
+
+def legacy_sighash(
+    scriptCode: Octets, transaction: tx.Tx, input_index: int, hashtype: int
+) -> bytes:
+    new_tx = deepcopy(transaction)
+    for txin in new_tx.vin:
+        txin.scriptSig = []
+    # TODO: delete sig from scriptCode (even if non standard)
+    new_tx.vin[input_index].scriptSig = script.decode(scriptCode)
+    if hashtype & 31 == 0x02:
+        new_tx.vout = []
+        for i, txin in enumerate(new_tx.vin):
+            if i != input_index:
+                txin.nSequence = 0
+
+    if hashtype & 31 == 0x03:
+        # sighash single bug
+        if input_index >= len(new_tx.vout):
+            return (256 ** 31).to_bytes(32, "big")
+        new_tx.vout = new_tx.vout[: input_index + 1]
+        for txout in new_tx.vout[:-1]:
+            txout.scriptPubKey = []
+            txout.nValue = 256 ** 8 - 1
+        for i, txin in enumerate(new_tx.vin):
+            if i != input_index:
+                txin.nSequence = 0
+
+    if hashtype & 0x80:
+        new_tx.vin = [new_tx.vin[input_index]]
+
+    preimage = new_tx.serialize()
+    preimage += hashtype.to_bytes(4, "little")
+
+    return hash256(preimage)
 
 
 # https://github.com/bitcoin/bitcoin/blob/4b30c41b4ebf2eb70d8a3cd99cf4d05d405eec81/test/functional/test_framework/script.py#L673
@@ -139,6 +176,20 @@ def segwit_v1_sighash(
 
 
 # FIXME: remove OP_CODESEPARATOR only if exectued
+def _get_legacy_scriptCodes(scriptPubKey: Script) -> List[str]:
+    scriptCodes: List[str] = []
+    current_script: List[Token] = []
+    for token in scriptPubKey[::-1]:
+        if token == "OP_CODESEPARATOR":
+            scriptCodes.append(script.encode(current_script[::-1]).hex())
+        else:
+            current_script.append(token)
+    scriptCodes.append(script.encode(current_script[::-1]).hex())
+    scriptCodes = scriptCodes[::-1]
+    return scriptCodes
+
+
+# FIXME: remove OP_CODESEPARATOR only if executed
 def _get_witness_v0_scriptCodes(scriptPubKey: Script) -> List[str]:
     scriptCodes: List[str] = []
     try:
@@ -170,9 +221,12 @@ def get_sighash(
     value = previous_output.nValue
 
     scriptPubKey = previous_output.scriptPubKey
-    script_type = payload_from_scriptPubKey(scriptPubKey)[0]
-    if script_type == "p2sh":
-        scriptPubKey = transaction.vin[input_index].scriptSig
+    try:
+        script_type = payload_from_scriptPubKey(scriptPubKey)[0]
+        if script_type == "p2sh":
+            scriptPubKey = transaction.vin[input_index].scriptSig
+    except:
+        pass
 
     if len(scriptPubKey) == 2 and scriptPubKey[0] == 0:  # is segwit
         script_type = payload_from_scriptPubKey(scriptPubKey)[0]
@@ -186,7 +240,9 @@ def get_sighash(
         return segwit_v0_sighash(
             bytes.fromhex(scriptCode), transaction, input_index, sighash_type, value
         )
-    raise RuntimeError("legacy transactions not supported yet")
+    else:
+        scriptCode = _get_legacy_scriptCodes(scriptPubKey)[0]
+        return legacy_sighash(scriptCode, transaction, input_index, sighash_type)
 
 
 # def sign(

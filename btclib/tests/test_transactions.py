@@ -32,8 +32,6 @@ def test_coinbase_1() -> None:
     assert transaction_in.serialize().hex() == block_1_coinbase_input_bytes
     assert transaction_out.serialize().hex() == block_1_coinbase_output_bytes
 
-    assert transaction.vin[0].scriptSig == []
-
     assert (
         transaction.txid
         == "0e3e2357e806b6cdb1f70b54c3a3a17b6714ee1f0e68bebb44a74b1efd512098"
@@ -118,7 +116,6 @@ def test_invalid_tx_in() -> None:
     transaction_input = tx_in.TxIn(
         prevout=tx_in.OutPoint("00" * 31 + "01", 256 ** 4 - 1),
         scriptSig=[],
-        scriptSigHex="",
         nSequence=1,
         txinwitness=[],
     )
@@ -129,11 +126,7 @@ def test_invalid_tx_in() -> None:
 
 def test_invalid_tx_in2() -> None:
     transaction_input = tx_in.TxIn(
-        prevout=tx_in.OutPoint("00" * 32, 0),
-        scriptSig=[],
-        scriptSigHex="",
-        nSequence=1,
-        txinwitness=[],
+        prevout=tx_in.OutPoint("00" * 32, 0), scriptSig=[], nSequence=1, txinwitness=[]
     )
 
     with pytest.raises(ValueError):
@@ -156,13 +149,6 @@ def test_invalid_tx_out2() -> None:
         transaction_output.assert_valid()
 
 
-def test_invalid_tx_out3() -> None:
-    transaction_output = tx_out.TxOut(nValue=1, scriptPubKey=[])
-
-    with pytest.raises(ValueError):
-        transaction_output.assert_valid()
-
-
 def test_missing_tx_in() -> None:
     transaction = tx.Tx(0, 0, [], [])
     err_msg = "A transaction must have at least one input"
@@ -172,11 +158,7 @@ def test_missing_tx_in() -> None:
 
 def test_missing_tx_out() -> None:
     transaction_input = tx_in.TxIn(
-        prevout=tx_in.OutPoint("ff" * 32, 0),
-        scriptSig=[],
-        scriptSigHex="",
-        nSequence=1,
-        txinwitness=[],
+        prevout=tx_in.OutPoint("ff" * 32, 0), scriptSig=[], nSequence=1, txinwitness=[]
     )
     transaction = tx.Tx(0, 0, [transaction_input], [])
     err_msg = "A transaction must have at least one output"
