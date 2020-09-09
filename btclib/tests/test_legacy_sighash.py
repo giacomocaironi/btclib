@@ -16,7 +16,7 @@ from btclib.tx_in import TxIn, OutPoint
 from btclib.tx_out import TxOut
 from btclib.tx import Tx
 from btclib.sighash import get_sighash, legacy_sighash, _get_legacy_scriptCodes
-from btclib.curvemult import mult
+from btclib.curve import mult
 from btclib.secpoint import bytes_from_point
 from btclib.script import decode
 
