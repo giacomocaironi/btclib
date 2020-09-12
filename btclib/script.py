@@ -19,7 +19,7 @@ Scripts are represented by List[Token], where Token = Union[int, str, bytes]:
 * bytes are for data (but integers are often casted to int)
 """
 
-from typing import List
+from typing import List, Union
 
 from . import varint
 from .alias import BinaryData, Octets, Token
@@ -314,6 +314,123 @@ def _op_str(token: str) -> bytes:
     except Exception:
         raise ValueError(f"invalid string token: {token}")
     return _op_pushdata(data)
+
+
+def hex_from_asm(script: List[Token]) -> bytes:
+    r = b""
+    for token in script:
+        if isinstance(token, int):
+            r += _op_int(token)
+        elif isinstance(token, str):
+            r += _op_str(token)
+        elif isinstance(token, bytes):
+            r += _op_pushdata(token)
+        else:
+            raise ValueError(f"Unmanaged {type(token)} token type")
+    return r
+
+
+def asm_from_hex(stream: BinaryData) -> List[Token]:
+
+    s = bytesio_from_binarydata(stream)
+    # initialize the result list
+    r: List[Token] = []
+    while True:
+        # get one byte
+        t = s.read(1)
+        if not t:
+            break
+        # convert it to an integer
+        i = t[0]
+        if i == 0:
+            # numeric value 0 (OP_0)
+            # r.append(OP_CODE_NAMES[i])
+            r.append(i)
+        elif i == 79:
+            # numeric value -1 (OP_1NEGATE)
+            r.append(-1)
+        elif i > 80 and i < 97:
+            # numeric values 1-16 (OP_1-OP_16)
+            # r.append(OP_CODE_NAMES[i])
+            r.append(i - 80)
+        elif i < 76:
+            # 1-byte-data-length | data
+            data = s.read(i)
+            r.append(data.hex().upper())
+        elif i == 76:
+            # OP_PUSHDATA1 | 1-byte-data-length | data
+            data_length = int.from_bytes(s.read(1), byteorder="little")
+            data = s.read(data_length)
+            r.append(data.hex().upper())
+        elif i == 77:
+            # OP_PUSHDATA2 | 2-byte-data-length | data
+            data_length = int.from_bytes(s.read(2), byteorder="little")
+            data = s.read(data_length)
+            r.append(data.hex().upper())
+        elif i == 78:
+            # OP_PUSHDATA4 | 4-byte-data-length | data
+            data_length = int.from_bytes(s.read(4), byteorder="little")
+            data = s.read(data_length)
+            r.append(data.hex().upper())
+        else:
+            # OP_CODE
+            r.append(OP_CODE_NAMES[i])
+
+    return r
+
+
+class Script:
+    def __init__(self, script: Union[Octets, List[Token]] = ""):
+        if isinstance(script, list):
+            self.hex = hex_from_asm(script).hex()
+        elif isinstance(script, bytes):
+            self.hex = script.hex()
+        elif isinstance(script, str):
+            self.hex = script
+        else:
+            raise ValueError
+
+    def __eq__(self, other):
+        if isinstance(other, list):
+            try:
+                other_hex = hex_from_asm(other).hex()
+            except ValueError:
+                other_hex = ""
+        elif isinstance(other, str):
+            other_hex = other
+        elif isinstance(other, Script):
+            other_hex = other.hex
+        else:
+            return False
+        return self.hex == other_hex
+
+    def __repr__(self):
+        try:
+            asm = str(self.asm)
+        except ValueError:
+            asm = "<err>"
+        return f"Script(asm={asm}, hex='{self.hex}')"
+
+    def __bool__(self):
+        return bool(self.hex)
+
+    @property
+    def asm(self):
+        return asm_from_hex(self.hex)
+
+    def encode(self):
+        return bytes.fromhex(self.hex)
+
+    def serialize(self):
+        length = len(self.hex) // 2
+        return varint.encode(length) + bytes.fromhex(self.hex)
+
+    @classmethod
+    def deserialize(cls, stream: BinaryData):
+        stream = bytesio_from_binarydata(stream)
+        length = varint.decode(stream)
+        script = stream.read(length)
+        return cls(script.hex())
 
 
 def encode(script: List[Token]) -> bytes:

@@ -11,9 +11,10 @@
 from dataclasses import dataclass
 from typing import List, Type, TypeVar
 
-from . import script, varint
-from .alias import BinaryData, Token
+from . import varint
+from .alias import BinaryData
 from .utils import bytesio_from_binarydata
+from .script import Script
 
 _OutPoint = TypeVar("_OutPoint", bound="OutPoint")
 
@@ -53,7 +54,7 @@ _TxIn = TypeVar("_TxIn", bound="TxIn")
 @dataclass
 class TxIn:
     prevout: OutPoint
-    scriptSig: List[Token]
+    scriptSig: Script
     nSequence: int
     txinwitness: List[str]
 
@@ -61,15 +62,7 @@ class TxIn:
     def deserialize(cls: Type[_TxIn], data: BinaryData) -> _TxIn:
         stream = bytesio_from_binarydata(data)
         prevout = OutPoint.deserialize(stream)
-        is_coinbase = False
-        if prevout.hash == "00" * 32 and prevout.n == 256 ** 4 - 1:
-            is_coinbase = True
-        script_length = varint.decode(stream)
-        scriptSig: List[Token] = []
-        if is_coinbase:
-            scriptSig = [stream.read(script_length)]
-        else:
-            scriptSig = script.decode(stream.read(script_length))
+        scriptSig = Script.deserialize(stream)
         nSequence = int.from_bytes(stream.read(4), "little")
         txinwitness: List[str] = []
         tx_in = cls(
@@ -83,11 +76,7 @@ class TxIn:
 
     def serialize(self) -> bytes:
         out = self.prevout.serialize()
-        if self.prevout.hash == "00" * 32 and self.prevout.n == 256 ** 4 - 1:
-            out += varint.encode(len(self.scriptSig[0]))
-            out += self.scriptSig[0]
-        else:
-            out += script.serialize(self.scriptSig)
+        out += self.scriptSig.serialize()
         out += self.nSequence.to_bytes(4, "little")
         return out
 

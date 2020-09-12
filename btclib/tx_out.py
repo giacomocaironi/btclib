@@ -9,10 +9,11 @@
 # or distributed except according to the terms contained in the LICENSE file.
 
 from dataclasses import dataclass
-from typing import List, Type, TypeVar
+from typing import Type, TypeVar
 
-from . import script, varint
-from .alias import BinaryData, Token
+from . import varint
+from .script import Script
+from .alias import BinaryData
 from .utils import bytesio_from_binarydata
 
 _TxOut = TypeVar("_TxOut", bound="TxOut")
@@ -21,21 +22,21 @@ _TxOut = TypeVar("_TxOut", bound="TxOut")
 @dataclass
 class TxOut:
     nValue: int  # satoshis
-    scriptPubKey: List[Token]
+    scriptPubKey: Script
 
     @classmethod
     def deserialize(cls: Type[_TxOut], data: BinaryData) -> _TxOut:
         stream = bytesio_from_binarydata(data)
         nValue = int.from_bytes(stream.read(8), "little")
         script_length = varint.decode(stream)
-        scriptPubKey = script.decode(stream.read(script_length))
+        scriptPubKey = Script(stream.read(script_length))
         tx_out = cls(nValue=nValue, scriptPubKey=scriptPubKey)
         tx_out.assert_valid()
         return tx_out
 
     def serialize(self) -> bytes:
         out = self.nValue.to_bytes(8, "little")
-        out += script.serialize(self.scriptPubKey)
+        out += self.scriptPubKey.serialize()
         return out
 
     def assert_valid(self) -> None:

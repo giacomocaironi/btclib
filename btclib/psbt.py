@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 from . import script, varint
+from .script import Script
 from .alias import Token
 from .scriptpubkey import payload_from_scriptPubKey
 from .tx import Tx
@@ -63,10 +64,10 @@ class PsbtIn:
     witness_utxo: Optional[TxOut] = None
     partial_sigs: Dict[str, str] = field(default_factory=dict)
     sighash: Optional[int] = 0
-    redeem_script: List[Token] = field(default_factory=list)
-    witness_script: List[Token] = field(default_factory=list)
+    redeem_script: Script = field(default_factory=list)
+    witness_script: Script = field(default_factory=list)
     hd_keypaths: Dict[str, Dict[str, str]] = field(default_factory=dict)
-    final_script_sig: List[Token] = field(default_factory=list)
+    final_script_sig: Script = field(default_factory=list)
     final_script_witness: List[str] = field(default_factory=list)
     por_commitment: Optional[str] = None
     proprietary: Dict[int, Dict[str, str]] = field(default_factory=dict)
@@ -78,10 +79,10 @@ class PsbtIn:
         witness_utxo = None
         partial_sigs = {}
         sighash = 0
-        redeem_script = []
-        witness_script = []
+        redeem_script = Script()
+        witness_script = Script()
         hd_keypaths = {}
-        final_script_sig = []
+        final_script_sig = Script()
         final_script_witness = []
         por_commitment = None
         proprietary: Dict[int, Dict[str, str]] = {}
@@ -102,10 +103,10 @@ class PsbtIn:
                 sighash = int.from_bytes(value, "little")
             elif key[0] == 0x04:
                 assert len(key) == 1
-                redeem_script = script.decode(value)
+                redeem_script = Script(value)
             elif key[0] == 0x05:
                 assert len(key) == 1
-                witness_script = script.decode(value)
+                witness_script = Script(value)
             elif key[0] == 0x06:
                 assert len(key) == 33 + 1
                 assert len(value) % 4 == 0
@@ -115,7 +116,7 @@ class PsbtIn:
                 }
             elif key[0] == 0x07:
                 assert len(key) == 1
-                final_script_sig = script.decode(value)
+                final_script_sig = Script(value)
             elif key[0] == 0x08:
                 assert len(key) == 1
                 final_script_witness = witness_deserialize(value)
@@ -169,10 +170,10 @@ class PsbtIn:
             out += self.sighash.to_bytes(4, "little")
         if self.redeem_script:
             out += b"\x01\x04"
-            out += script.serialize(self.redeem_script)
+            out += self.redeem_script.serialize()
         if self.witness_script:
             out += b"\x01\x05"
-            out += script.serialize(self.witness_script)
+            out += self.witness_script.serialize()
         if self.hd_keypaths:
             for xpub, hd_keypath in self.hd_keypaths.items():
                 out += b"\x22\x06" + bytes.fromhex(xpub)
@@ -181,7 +182,7 @@ class PsbtIn:
                 out += varint.encode(len(keypath)) + keypath
         if self.final_script_sig:
             out += b"\x01\x07"
-            out += script.serialize(self.final_script_sig)
+            out += self.final_script_sig.serialize()
         if self.final_script_witness:
             out += b"\x01\x08"
             wit = witness_serialize(self.final_script_witness)
@@ -264,10 +265,10 @@ class PsbtOut:
         out = b""
         if self.redeem_script:
             out += b"\x01\x00"
-            out += script.serialize(self.redeem_script)
+            out += self.redeem_script.serialize()
         if self.witness_script:
             out += b"\x01\x01"
-            out += script.serialize(self.witness_script)
+            out += self.witness_script.serialize()
         if self.hd_keypaths:
             for xpub, hd_keypath in self.hd_keypaths.items():
                 out += b"\x22\x02" + bytes.fromhex(xpub)
@@ -422,10 +423,10 @@ class Psbt:
             if witness_utxo:
                 assert isinstance(witness_utxo, TxOut)
                 scriptPubKey = witness_utxo.scriptPubKey
-                script_type = payload_from_scriptPubKey(scriptPubKey)[0]
+                script_type = payload_from_scriptPubKey(scriptPubKey.hex)[0]
                 if script_type == "p2sh":
                     scriptPubKey = self.inputs[i].redeem_script
-                script_type = payload_from_scriptPubKey(scriptPubKey)[0]
+                script_type = payload_from_scriptPubKey(scriptPubKey.hex)[0]
                 assert script_type in ["p2wpkh", "p2wsh"]
 
             if self.inputs[i].redeem_script:
@@ -433,8 +434,8 @@ class Psbt:
                     scriptPubKey = non_witness_utxo.vout[tx_in.prevout.n].scriptPubKey
                 elif witness_utxo:
                     scriptPubKey = witness_utxo.scriptPubKey
-                hash = hash160(script.encode(self.inputs[i].redeem_script))
-                assert hash == payload_from_scriptPubKey(scriptPubKey)[1]
+                hash = hash160(self.inputs[i].redeem_script.encode())
+                assert hash == payload_from_scriptPubKey(scriptPubKey.hex)[1]
 
             if self.inputs[i].witness_script:
                 if non_witness_utxo:
@@ -444,8 +445,8 @@ class Psbt:
                 if self.inputs[i].redeem_script:
                     scriptPubKey = self.inputs[i].redeem_script
 
-                hash = sha256(script.encode(self.inputs[i].witness_script))
-                assert hash == payload_from_scriptPubKey(scriptPubKey)[1]
+                hash = sha256(self.inputs[i].witness_script.encode())
+                assert hash == payload_from_scriptPubKey(scriptPubKey.hex)[1]
 
 
 def deserialize_map(data: bytes) -> Tuple[Dict[bytes, bytes], bytes]:
@@ -470,7 +471,7 @@ def deserialize_map(data: bytes) -> Tuple[Dict[bytes, bytes], bytes]:
 def psbt_from_tx(tx: Tx) -> Psbt:
     tx = deepcopy(tx)
     for input in tx.vin:
-        input.scriptSig = []
+        input.scriptSig = Script()
         input.txinwitness = []
     inputs = [PsbtIn() for _ in tx.vin]
     outputs = [PsbtOut() for _ in tx.vout]
@@ -533,32 +534,26 @@ def finalize_psbt(psbt: Psbt) -> Psbt:
     for psbt_in in psbt.inputs:
         assert psbt_in.partial_sigs
         if psbt_in.witness_script:
-            psbt_in.final_script_sig = [
-                script.encode(psbt_in.redeem_script).hex().upper()
-            ]
-            psbt_in.final_script_witness = list(psbt_in.partial_sigs.values())
-            psbt_in.final_script_witness += [
-                script.encode(psbt_in.witness_script).hex()
-            ]
+            final_script_sig = [psbt_in.redeem_script.hex.upper()]
+            final_script_witness = list(psbt_in.partial_sigs.values())
+            final_script_witness += [psbt_in.witness_script.hex]
             if len(psbt_in.partial_sigs) > 1:
-                psbt_in.final_script_witness = [""] + psbt_in.final_script_witness
+                final_script_witness = [""] + final_script_witness
+            psbt_in.final_script_witness = final_script_witness
         else:
-            psbt_in.final_script_sig = [
-                a.upper() for a in list(psbt_in.partial_sigs.values())
-            ]
-            psbt_in.final_script_sig += [
-                script.encode(psbt_in.redeem_script).hex().upper()
-            ]
+            final_script_sig = [a.upper() for a in list(psbt_in.partial_sigs.values())]
+            final_script_sig += [psbt_in.redeem_script.hex.upper()]
             if len(psbt_in.partial_sigs) > 1:
                 # https://github.com/bitcoin/bips/blob/master/bip-0147.mediawiki#motivation
                 dummy_element: List[Token] = [0]
-                psbt_in.final_script_sig = dummy_element + psbt_in.final_script_sig
+                final_script_sig = dummy_element + final_script_sig
         psbt_in.partial_sigs = {}
         psbt_in.sighash = 0
-        psbt_in.redeem_script = []
-        psbt_in.witness_script = []
+        psbt_in.redeem_script = Script()
+        psbt_in.witness_script = Script()
         psbt_in.hd_keypaths = {}
         psbt_in.por_commitment = None
+        psbt_in.final_script_sig = Script(final_script_sig)
     return psbt
 
 
