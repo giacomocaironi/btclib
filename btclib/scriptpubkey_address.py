@@ -8,15 +8,15 @@
 # No part of btclib including this file, may be copied, modified, propagated,
 # or distributed except according to the terms contained in the LICENSE file.
 
-from typing import Tuple
+from typing import Tuple, List
 
-from .alias import Script, String
+from .alias import String, Token, Script
 from .base58address import b58address_from_h160, h160_from_b58address
 from .bech32address import b32address_from_witness, witness_from_b32address
 from .network import NETWORKS
-from .script import decode
 from .scriptpubkey import payload_from_scriptPubKey, scriptPubKey_from_payload
 from .tx_out import TxOut
+from . import script
 
 
 def has_segwit_prefix(addr: String) -> bool:
@@ -69,10 +69,10 @@ def address_from_scriptPubKey(scriptPubKey: Script, network: str = "mainnet") ->
 
 def tx_out_from_address(address: str, value: int) -> TxOut:
     scriptPubKey = scriptPubKey_from_address(address)[0]
-    return TxOut(value, decode(scriptPubKey))
+    return TxOut(value, script.Script(scriptPubKey))
 
 
 def address_from_tx_out(tx_out: TxOut) -> str:
-    scriptPubKey = tx_out.scriptPubKey
+    scriptPubKey = tx_out.scriptPubKey.hex
     address = address_from_scriptPubKey(scriptPubKey)
     return address.decode("ascii")

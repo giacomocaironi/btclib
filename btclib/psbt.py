@@ -64,10 +64,10 @@ class PsbtIn:
     witness_utxo: Optional[TxOut] = None
     partial_sigs: Dict[str, str] = field(default_factory=dict)
     sighash: Optional[int] = 0
-    redeem_script: Script = field(default_factory=list)
-    witness_script: Script = field(default_factory=list)
+    redeem_script: Script = Script()
+    witness_script: Script = Script()
     hd_keypaths: Dict[str, Dict[str, str]] = field(default_factory=dict)
-    final_script_sig: Script = field(default_factory=list)
+    final_script_sig: Script = Script()
     final_script_witness: List[str] = field(default_factory=list)
     por_commitment: Optional[str] = None
     proprietary: Dict[int, Dict[str, str]] = field(default_factory=dict)
@@ -212,26 +212,26 @@ _PsbtOut = TypeVar("_PsbtOut", bound="PsbtOut")
 
 @dataclass
 class PsbtOut:
-    redeem_script: List[Token] = field(default_factory=list)
-    witness_script: List[Token] = field(default_factory=list)
+    redeem_script: Script = Script()
+    witness_script: Script = Script()
     hd_keypaths: Dict[str, Dict[str, str]] = field(default_factory=dict)
     proprietary: Dict[int, Dict[str, str]] = field(default_factory=dict)
     unknown: Dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def decode(cls: Type[_PsbtOut], output_map: Dict[bytes, bytes]) -> _PsbtOut:
-        redeem_script = []
-        witness_script = []
+        redeem_script = Script()
+        witness_script = Script()
         hd_keypaths = {}
         proprietary: Dict[int, Dict[str, str]] = {}
         unknown = {}
         for key, value in output_map.items():
             if key[0] == 0x00:
                 assert len(key) == 1
-                redeem_script = script.decode(value)
+                redeem_script = Script(value)
             elif key[0] == 0x01:
                 assert len(key) == 1
-                witness_script = script.decode(value)
+                witness_script = Script(value)
             elif key[0] == 0x02:
                 assert len(key) == 33 + 1
                 assert len(value) % 4 == 0
@@ -534,7 +534,7 @@ def finalize_psbt(psbt: Psbt) -> Psbt:
     for psbt_in in psbt.inputs:
         assert psbt_in.partial_sigs
         if psbt_in.witness_script:
-            final_script_sig = [psbt_in.redeem_script.hex.upper()]
+            final_script_sig: List[Token] = [psbt_in.redeem_script.hex.upper()]
             final_script_witness = list(psbt_in.partial_sigs.values())
             final_script_witness += [psbt_in.witness_script.hex]
             if len(psbt_in.partial_sigs) > 1:
@@ -545,7 +545,7 @@ def finalize_psbt(psbt: Psbt) -> Psbt:
             final_script_sig += [psbt_in.redeem_script.hex.upper()]
             if len(psbt_in.partial_sigs) > 1:
                 # https://github.com/bitcoin/bips/blob/master/bip-0147.mediawiki#motivation
-                dummy_element: List[Token] = [0]
+                dummy_element: List[Token] = ["OP_0"]
                 final_script_sig = dummy_element + final_script_sig
         psbt_in.partial_sigs = {}
         psbt_in.sighash = 0
