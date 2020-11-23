@@ -13,6 +13,7 @@
 https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki
 """
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Type, TypeVar
 
@@ -195,6 +196,44 @@ class PsbtIn(DataClassJsonMixin):
             encoder=_encode_dict_bytes_bytes, decoder=_decode_dict_bytes_bytes
         ),
     )
+
+    def to_dict(self, *args, **kwargs):
+        out_dict = super().to_dict(*args, **kwargs)
+        if out_dict["non_witness_utxo"]:
+            for tx_in in out_dict["non_witness_utxo"]["vin"]:
+                tx_in["txid"] = tx_in["prevout"]["txid"]
+                tx_in["vout"] = tx_in["prevout"]["vout"]
+                del tx_in["prevout"]
+        if out_dict["witness_utxo"]:
+            for tx_in in out_dict["witness_utxo"]["vin"]:
+                tx_in["txid"] = tx_in["prevout"]["txid"]
+                tx_in["vout"] = tx_in["prevout"]["vout"]
+                del tx_in["prevout"]
+        return out_dict
+
+    @classmethod
+    def from_dict(cls, psbt_dict, *args, **kwargs):
+        psbt_dict = deepcopy(psbt_dict)
+        try:
+            if psbt_dict["non_witness_utxo"]:
+                for i, tx_in in enumerate(psbt_dict["non_witness_utxo"]["vin"]):
+                    psbt_dict["non_witness_utxo"]["vin"][i]["prevout"] = {
+                        "txid": tx_in["txid"],
+                        "vout": tx_in["vout"],
+                    }
+                    del tx_in["vout"]
+                    del tx_in["txid"]
+            if psbt_dict["witness_utxo"]:
+                for i, tx_in in enumerate(psbt_dict["witness_utxo"]["vin"]):
+                    psbt_dict["non_witness_utxo"]["vin"][i]["prevout"] = {
+                        "txid": tx_in["txid"],
+                        "vout": tx_in["vout"],
+                    }
+                    del tx_in["vout"]
+                    del tx_in["txid"]
+            return super().from_dict(psbt_dict, *args, **kwargs)
+        except KeyError as e:
+            raise BTClibValueError("Invalid psbt") from e
 
     @classmethod
     def deserialize(
